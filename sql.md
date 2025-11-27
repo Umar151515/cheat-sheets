@@ -14,9 +14,9 @@
 
 ---
 
-## 🎯 ТИПЫ ДАННЫХ В SQL
+## ТИПЫ ДАННЫХ В SQL
 
-### 🔢 **ЧИСЛОВЫЕ ТИПЫ ДАННЫХ**
+### **ЧИСЛОВЫЕ ТИПЫ ДАННЫХ**
 
 #### **ЦЕЛЫЕ ЧИСЛА**
 ```sql
@@ -78,7 +78,7 @@ INSERT INTO example_decimal VALUES
 (99999999.99, 0.9999, 99999.99);
 ```
 
-### 🔤 **СТРОКОВЫЕ ТИПЫ ДАННЫХ**
+### **СТРОКОВЫЕ ТИПЫ ДАННЫХ**
 
 #### **СТРОКИ ФИКСИРОВАННОЙ ДЛИНЫ**
 ```sql
@@ -146,7 +146,7 @@ CREATE TABLE example_longblob (
 );
 ```
 
-### 📅 **ТИПЫ ДАННЫХ ДАТЫ И ВРЕМЕНИ**
+### **ТИПЫ ДАННЫХ ДАТЫ И ВРЕМЕНИ**
 
 ```sql
 -- DATE: только дата
@@ -181,7 +181,7 @@ CREATE TABLE example_year (
 );
 ```
 
-### ✅ **ПРОЧИЕ ТИПЫ ДАННЫХ**
+### **ПРОЧИЕ ТИПЫ ДАННЫХ**
 
 ```sql
 -- BOOLEAN: логический тип
@@ -211,9 +211,9 @@ CREATE TABLE example_json (
 
 ---
 
-## ⚡ ОГРАНИЧЕНИЯ (CONSTRAINTS)
+## ОГРАНИЧЕНИЯ (CONSTRAINTS)
 
-### 🗝️ **PRIMARY KEY - ПЕРВИЧНЫЙ КЛЮЧ**
+### **PRIMARY KEY - ПЕРВИЧНЫЙ КЛЮЧ**
 
 ```sql
 -- ПРОСТОЙ ПЕРВИЧНЫЙ КЛЮЧ
@@ -241,7 +241,7 @@ ALTER TABLE employees ADD PRIMARY KEY (emp_id);
 ALTER TABLE orders DROP PRIMARY KEY;
 ```
 
-### 🔗 **FOREIGN KEY - ВНЕШНИЙ КЛЮЧ**
+### **FOREIGN KEY - ВНЕШНИЙ КЛЮЧ**
 
 ```sql
 -- БАЗОВЫЙ ВНЕШНИЙ КЛЮЧ
@@ -287,7 +287,7 @@ ON DELETE SET NULL
 ON UPDATE CASCADE;
 ```
 
-### 🚫 **NOT NULL - ЗАПРЕТ NULL ЗНАЧЕНИЙ**
+### **NOT NULL - ЗАПРЕТ NULL ЗНАЧЕНИЙ**
 
 ```sql
 CREATE TABLE users (
@@ -304,7 +304,7 @@ ALTER TABLE users MODIFY COLUMN phone_number VARCHAR(20) NOT NULL;
 ALTER TABLE products MODIFY COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0;
 ```
 
-### 🔄 **UNIQUE - УНИКАЛЬНЫЕ ЗНАЧЕНИЯ**
+### **UNIQUE - УНИКАЛЬНЫЕ ЗНАЧЕНИЯ**
 
 ```sql
 CREATE TABLE companies (
@@ -328,7 +328,7 @@ ALTER TABLE employees ADD CONSTRAINT uk_employee_email UNIQUE (email);
 ALTER TABLE products ADD UNIQUE (product_code);
 ```
 
-### ✅ **CHECK - ПРОВЕРКА УСЛОВИЙ**
+### **CHECK - ПРОВЕРКА УСЛОВИЙ**
 
 ```sql
 -- ПРОВЕРКА ЗНАЧЕНИЙ ПРИ СОЗДАНИИ ТАБЛИЦЫ
@@ -363,7 +363,7 @@ ADD CONSTRAINT chk_order_date
 CHECK (order_date <= CURDATE());
 ```
 
-### ⚙️ **DEFAULT - ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ**
+### **DEFAULT - ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ**
 
 ```sql
 CREATE TABLE website_users (
@@ -387,9 +387,9 @@ ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
 
 ---
 
-## 🏗️ DDL - DATA DEFINITION LANGUAGE
+## DDL - DATA DEFINITION LANGUAGE
 
-### 📦 **СОЗДАНИЕ БАЗЫ ДАННЫХ**
+### **СОЗДАНИЕ БАЗЫ ДАННЫХ**
 
 ```sql
 -- ПРОСТОЕ СОЗДАНИЕ БАЗЫ ДАННЫХ
@@ -414,7 +414,7 @@ DROP DATABASE company;
 DROP DATABASE IF EXISTS old_company;
 ```
 
-### 🗂️ **СОЗДАНИЕ ТАБЛИЦ**
+### **СОЗДАНИЕ ТАБЛИЦ**
 
 ```sql
 -- БАЗОВАЯ ТАБЛИЦА СОТРУДНИКОВ
@@ -466,7 +466,7 @@ CREATE TABLE employee_projects (
 );
 ```
 
-### 🔧 **ИЗМЕНЕНИЕ СТРУКТУРЫ ТАБЛИЦ**
+### **ИЗМЕНЕНИЕ СТРУКТУРЫ ТАБЛИЦ**
 
 ```sql
 -- ДОБАВЛЕНИЕ НОВОГО СТОЛБЦА
@@ -512,7 +512,7 @@ ALTER TABLE employees
 ADD INDEX idx_department_salary (department_id, salary DESC);
 ```
 
-### 🗑️ **УДАЛЕНИЕ ТАБЛИЦ**
+### **УДАЛЕНИЕ ТАБЛИЦ**
 
 ```sql
 -- БАЗОВОЕ УДАЛЕНИЕ
@@ -531,9 +531,9 @@ TRUNCATE TABLE audit_trail RESTART IDENTITY;  -- сброс автоинкрем
 
 ---
 
-## 📝 DML - DATA MANIPULATION LANGUAGE
+## DML - DATA MANIPULATION LANGUAGE
 
-### ➕ **INSERT - ДОБАВЛЕНИЕ ДАННЫХ**
+### **INSERT - ДОБАВЛЕНИЕ ДАННЫХ**
 
 ```sql
 -- ВСТАВКА ОДНОЙ ЗАПИСИ (ВСЕ СТОЛБЦЫ)
@@ -580,7 +580,7 @@ ON DUPLICATE KEY UPDATE
     updated_at = CURRENT_TIMESTAMP;
 ```
 
-### ✏️ **UPDATE - ОБНОВЛЕНИЕ ДАННЫХ**
+### **UPDATE - ОБНОВЛЕНИЕ ДАННЫХ**
 
 ```sql
 -- ОБНОВЛЕНИЕ ВСЕХ ЗАПИСЕЙ
@@ -627,7 +627,7 @@ SET salary = CASE
 END;
 ```
 
-### 🗑️ **DELETE - УДАЛЕНИЕ ДАННЫХ**
+### **DELETE - УДАЛЕНИЕ ДАННЫХ**
 
 ```sql
 -- УДАЛЕНИЕ ВСЕХ ЗАПИСЕЙ (ОСТОРОЖНО!)
@@ -659,7 +659,7 @@ ORDER BY created_at
 LIMIT 1000;  -- удалить 1000 самых старых записей
 ```
 
-### 🔄 **MERGE/UPSERT - ОБЪЕДИНЕНИЕ ДАННЫХ**
+### **MERGE/UPSERT - ОБЪЕДИНЕНИЕ ДАННЫХ**
 
 ```sql
 -- MySQL (INSERT ... ON DUPLICATE KEY UPDATE)
@@ -706,9 +706,9 @@ WHEN NOT MATCHED THEN
 
 ---
 
-## 🔍 DQL - DATA QUERY LANGUAGE
+## DQL - DATA QUERY LANGUAGE
 
-### 👁️ **SELECT - БАЗОВЫЕ ЗАПРОСЫ**
+### **SELECT - БАЗОВЫЕ ЗАПРОСЫ**
 
 ```sql
 -- ВЫБРАТЬ ВСЕ СТОЛБЦЫ ИЗ ТАБЛИЦЫ
@@ -755,7 +755,7 @@ ORDER BY employee_id
 OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY;
 ```
 
-### 🎯 **WHERE - ФИЛЬТРАЦИЯ ДАННЫХ**
+### **WHERE - ФИЛЬТРАЦИЯ ДАННЫХ**
 
 ```sql
 -- ОПЕРАТОРЫ СРАВНЕНИЯ
@@ -816,7 +816,7 @@ SELECT * FROM employees WHERE manager_id IS NULL;
 SELECT * FROM employees WHERE email IS NOT NULL;
 ```
 
-### 📊 **GROUP BY - ГРУППИРОВКА ДАННЫХ**
+### **GROUP BY - ГРУППИРОВКА ДАННЫХ**
 
 ```sql
 -- ПРОСТАЯ ГРУППИРОВКА
@@ -863,7 +863,7 @@ GROUP BY department_id
 HAVING COUNT(*) >= 3;
 ```
 
-### 📈 **АГРЕГАТНЫЕ ФУНКЦИИ**
+### **АГРЕГАТНЫЕ ФУНКЦИИ**
 
 ```sql
 -- ОСНОВНЫЕ АГРЕГАТНЫЕ ФУНКЦИИ
@@ -904,7 +904,7 @@ FROM employees
 GROUP BY department_id;
 ```
 
-### 🔄 **ORDER BY - СОРТИРОВКА РЕЗУЛЬТАТОВ**
+### **ORDER BY - СОРТИРОВКА РЕЗУЛЬТАТОВ**
 
 ```sql
 -- ПРОСТАЯ СОРТИРОВКА
@@ -953,9 +953,9 @@ ORDER BY 4 DESC;  -- сортировка по salary (4-й столбец)
 
 ---
 
-## 🔗 JOIN - СОЕДИНЕНИЯ ТАБЛИЦ
+## JOIN - СОЕДИНЕНИЯ ТАБЛИЦ
 
-### 🤝 **INNER JOIN**
+### **INNER JOIN**
 
 ```sql
 -- БАЗОВЫЙ INNER JOIN
@@ -988,7 +988,7 @@ INNER JOIN employees e ON d.department_id = e.department_id
 GROUP BY d.department_name;
 ```
 
-### ◀️ **LEFT JOIN**
+### **LEFT JOIN**
 
 ```sql
 -- БАЗОВЫЙ LEFT JOIN
@@ -1017,7 +1017,7 @@ LEFT JOIN employees e ON d.department_id = e.department_id
 GROUP BY d.department_name;
 ```
 
-### ▶️ **RIGHT JOIN**
+### ▶**RIGHT JOIN**
 
 ```sql
 -- БАЗОВЫЙ RIGHT JOIN
@@ -1038,7 +1038,7 @@ RIGHT JOIN departments d ON e.department_id = d.department_id
 WHERE e.employee_id IS NULL;  -- отделы без сотрудников
 ```
 
-### ⬌ **FULL OUTER JOIN**
+### **FULL OUTER JOIN**
 
 ```sql
 -- FULL OUTER JOIN (MySQL через UNION)
@@ -1086,7 +1086,7 @@ FROM employees e
 RIGHT JOIN departments d ON e.department_id = d.department_id;
 ```
 
-### ❌ **CROSS JOIN**
+### **CROSS JOIN**
 
 ```sql
 -- CROSS JOIN (ДЕКАРТОВО ПРОИЗВЕДЕНИЕ)
@@ -1105,7 +1105,7 @@ CROSS JOIN projects p
 WHERE d.location = 'Moscow' AND p.status = 'planned';
 ```
 
-### 🔄 **SELF JOIN**
+### **SELF JOIN**
 
 ```sql
 -- SELF JOIN ДЛЯ ИЕРАРХИИ СОТРУДНИКОВ
@@ -1131,9 +1131,9 @@ WHERE e1.employee_id < e2.employee_id;  -- избегаем дубликатов
 
 ---
 
-## 🎭 ПОДЗАПРОСЫ
+## ПОДЗАПРОСЫ
 
-### 🔍 **ПОДЗАПРОСЫ В WHERE**
+### **ПОДЗАПРОСЫ В WHERE**
 
 ```sql
 -- ПРОСТОЙ ПОДЗАПРОС
@@ -1172,7 +1172,7 @@ WHERE salary > ANY (
 );
 ```
 
-### 📊 **ПОДЗАПРОСЫ В SELECT**
+### **ПОДЗАПРОСЫ В SELECT**
 
 ```sql
 -- СКАЛЯРНЫЕ ПОДЗАПРОСЫ
@@ -1196,7 +1196,7 @@ SELECT
 FROM employees e;
 ```
 
-### 🗂️ **ПОДЗАПРОСЫ В FROM**
+### **ПОДЗАПРОСЫ В FROM**
 
 ```sql
 -- ПОДЗАПРОС КАК ВИРТУАЛЬНАЯ ТАБЛИЦА
@@ -1231,9 +1231,9 @@ ORDER BY year_stats.hire_year DESC;
 
 ---
 
-## 💰 ТРАНЗАКЦИИ
+## ТРАНЗАКЦИИ
 
-### 🔄 **БАЗОВЫЕ ТРАНЗАКЦИИ**
+### **БАЗОВЫЕ ТРАНЗАКЦИИ**
 
 ```sql
 -- ПРОСТАЯ ТРАНЗАКЦИЯ
@@ -1249,7 +1249,7 @@ COMMIT;
 ROLLBACK;
 ```
 
-### 📍 **ТРАНЗАКЦИИ С ТОЧКАМИ СОХРАНЕНИЯ**
+### **ТРАНЗАКЦИИ С ТОЧКАМИ СОХРАНЕНИЯ**
 
 ```sql
 START TRANSACTION;
@@ -1301,9 +1301,9 @@ END IF;
 
 ---
 
-## 🚀 ИНДЕКСЫ
+## ИНДЕКСЫ
 
-### 📌 **СОЗДАНИЕ ИНДЕКСОВ**
+### **СОЗДАНИЕ ИНДЕКСОВ**
 
 ```sql
 -- ПРОСТОЙ ИНДЕКС
@@ -1342,9 +1342,9 @@ EXPLAIN SELECT * FROM employees WHERE last_name = 'Петров';
 
 ---
 
-## 💡 ПРАКТИЧЕСКИЕ ПРИМЕРЫ
+## ПРАКТИЧЕСКИЕ ПРИМЕРЫ
 
-### 🏆 **ТОП-5 СОТРУДНИКОВ ПО ЗАРПЛАТЕ В КАЖДОМ ОТДЕЛЕ**
+### **ТОП-5 СОТРУДНИКОВ ПО ЗАРПЛАТЕ В КАЖДОМ ОТДЕЛЕ**
 
 ```sql
 WITH ranked_employees AS (
@@ -1372,7 +1372,7 @@ WHERE re.rank_in_dept <= 5
 ORDER BY d.department_name, re.rank_in_dept;
 ```
 
-### 📅 **ЕЖЕМЕСЯЧНАЯ СТАТИСТИКА ПРИЕМА НА РАБОТУ**
+### **ЕЖЕМЕСЯЧНАЯ СТАТИСТИКА ПРИЕМА НА РАБОТУ**
 
 ```sql
 SELECT 
@@ -1392,7 +1392,7 @@ GROUP BY
 ORDER BY year DESC, month DESC;
 ```
 
-### 🔍 **ВЫЯВЛЕНИЕ ДУБЛИКАТОВ**
+### **ВЫЯВЛЕНИЕ ДУБЛИКАТОВ**
 
 ```sql
 SELECT 
@@ -1405,7 +1405,7 @@ GROUP BY email
 HAVING COUNT(*) > 1;
 ```
 
-### 🌳 **ИЕРАРХИЧЕСКИЙ ЗАПРОС ДЛЯ ОРГСТРУКТУРЫ**
+### **ИЕРАРХИЧЕСКИЙ ЗАПРОС ДЛЯ ОРГСТРУКТУРЫ**
 
 ```sql
 WITH RECURSIVE org_chart AS (

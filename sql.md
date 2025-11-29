@@ -1,6 +1,6 @@
 # ШПАРГАЛКА ПО SQL
 
-## 📋 ОГЛАВЛЕНИЕ
+## ОГЛАВЛЕНИЕ
 1. [Типы данных в SQL](#типы-данных-в-sql)
 2. [Ограничения (Constraints)](#ограничения-constraints)
 3. [DDL - Data Definition Language](#ddl---data-definition-language)

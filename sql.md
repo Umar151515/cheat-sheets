@@ -1,208 +1,290 @@
 # PostgreSQL с нуля до уверенного Junior+
 
-Это учебная документация-конспект по PostgreSQL: от базовых понятий до уровня, когда ты можешь уверенно работать с БД в реальном проекте: проектировать таблицы, писать SQL-запросы, понимать индексы, транзакции, связи, ограничения, базовую оптимизацию и администрирование.
+Ниже — подробный учебник по PostgreSQL: от самых базовых понятий до уровня, на котором ты сможешь уверенно работать с базой данных на junior-позиции.
 
 ---
 
-# 1. Что такое PostgreSQL
+# 0. Что такое PostgreSQL
 
-**PostgreSQL** — это реляционная система управления базами данных, или СУБД.
+## PostgreSQL — это СУБД
 
-Простыми словами:
+**СУБД** — система управления базами данных.
 
-- данные хранятся в таблицах;
-- таблицы связаны между собой;
-- для работы используется язык SQL;
-- PostgreSQL умеет обеспечивать целостность данных, транзакции, индексы, права доступа, резервное копирование и многое другое.
+PostgreSQL позволяет:
 
-PostgreSQL часто используют в backend-разработке, аналитике, финтехе, CRM, ERP, интернет-магазинах, SaaS-сервисах.
-
----
-
-# 2. Базовые термины
-
-## База данных
-
-**База данных** — логическое хранилище данных.
-
-Пример:
-
-```text
-online_shop
-```
-
-Внутри базы данных могут быть таблицы:
-
-```text
-users
-orders
-products
-payments
-```
-
----
-
-## Таблица
-
-**Таблица** — структура, в которой данные хранятся строками и столбцами.
-
-Пример таблицы `users`:
-
-| id | name | email |
-|---:|------|-------|
-| 1 | Ivan | ivan@mail.com |
-| 2 | Anna | anna@mail.com |
-
----
-
-## Строка
-
-**Строка** — одна запись в таблице.
-
-Например:
-
-```text
-1, Ivan, ivan@mail.com
-```
-
----
-
-## Столбец
-
-**Столбец** — поле записи.
-
-Например:
-
-```text
-id
-name
-email
-```
-
----
-
-## SQL
-
-**SQL** — язык для работы с реляционными базами данных.
-
-С его помощью можно:
-
-- создавать таблицы;
-- добавлять данные;
-- читать данные;
+- хранить данные;
+- искать данные;
 - изменять данные;
 - удалять данные;
-- создавать индексы;
-- управлять правами;
-- работать с транзакциями.
+- связывать данные между собой;
+- защищать данные;
+- делать резервные копии;
+- обрабатывать большие объёмы информации.
+
+Примеры данных:
+
+- пользователи сайта;
+- товары интернет-магазина;
+- заказы;
+- комментарии;
+- платежи;
+- логи;
+- настройки.
 
 ---
 
-# 3. Установка PostgreSQL
+# 1. Что такое база данных
 
-## Вариант 1. Установка через Docker
+## Простое объяснение
 
-Это самый удобный способ для обучения.
+База данных — это организованное хранилище информации.
 
-Создай файл `docker-compose.yml`:
+Например, у интернет-магазина есть:
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    container_name: postgres_db
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: shop
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+- пользователи;
+- товары;
+- заказы;
+- оплаты;
+- доставки.
 
-volumes:
-  postgres_data:
-```
-
-Запуск:
-
-```bash
-docker compose up -d
-```
-
-Подключение:
-
-```bash
-docker exec -it postgres_db psql -U admin -d shop
-```
-
-Остановка:
-
-```bash
-docker compose down
-```
+В PostgreSQL это обычно хранится в виде **таблиц**.
 
 ---
 
-## Вариант 2. Установка на Windows/macOS/Linux
+# 2. Таблицы
 
-Скачать можно с официального сайта:
+## Таблица похожа на Excel
+
+Например, таблица `users`:
+
+| id | name | email | age |
+|---|---|---|---|
+| 1 | Ivan | ivan@mail.com | 25 |
+| 2 | Anna | anna@mail.com | 30 |
+
+У таблицы есть:
+
+- **столбцы** — `id`, `name`, `email`, `age`;
+- **строки** — конкретные записи;
+- **типы данных** — число, текст, дата и т.д.
+
+---
+
+# 3. Что такое SQL
+
+**SQL** — язык, с помощью которого мы общаемся с базой данных.
+
+Примеры:
+
+```sql
+SELECT * FROM users;
+```
+
+Получить всех пользователей.
+
+```sql
+INSERT INTO users (name, email)
+VALUES ('Ivan', 'ivan@mail.com');
+```
+
+Добавить пользователя.
+
+```sql
+UPDATE users
+SET age = 26
+WHERE id = 1;
+```
+
+Изменить пользователя.
+
+```sql
+DELETE FROM users
+WHERE id = 1;
+```
+
+Удалить пользователя.
+
+---
+
+# 4. Установка PostgreSQL
+
+## Вариант 1: Через официальный сайт
+
+Скачать PostgreSQL можно здесь:
 
 ```text
 https://www.postgresql.org/download/
 ```
 
-После установки обычно появляются:
+После установки обычно появятся:
 
 - PostgreSQL Server;
-- pgAdmin;
-- psql.
+- pgAdmin — графический интерфейс;
+- psql — консольный клиент.
 
 ---
 
-# 4. Подключение к PostgreSQL
+## Вариант 2: Через Docker
 
-## Через psql
+Если знаешь Docker, можно запустить так:
 
 ```bash
-psql -U admin -d shop -h localhost -p 5432
+docker run --name postgres-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_DB=testdb \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+Подключиться:
+
+```bash
+docker exec -it postgres-db psql -U postgres -d testdb
+```
+
+---
+
+# 5. Основные термины PostgreSQL
+
+## Database
+
+**Database** — база данных.
+
+Например:
+
+```sql
+CREATE DATABASE shop;
+```
+
+---
+
+## Schema
+
+**Schema** — логическое пространство внутри базы данных.
+
+По умолчанию используется схема:
+
+```text
+public
+```
+
+Пример полного имени таблицы:
+
+```sql
+public.users
+```
+
+---
+
+## Table
+
+Таблица:
+
+```sql
+CREATE TABLE users (
+    id integer,
+    name text
+);
+```
+
+---
+
+## Row
+
+Строка таблицы.
+
+```text
+1 | Ivan
+2 | Anna
+```
+
+---
+
+## Column
+
+Столбец таблицы.
+
+```text
+id, name, email
+```
+
+---
+
+## Primary Key
+
+**Primary key** — главный уникальный идентификатор строки.
+
+Например:
+
+```sql
+id SERIAL PRIMARY KEY
+```
+
+Это значит:
+
+- `id` обязателен;
+- `id` уникален;
+- по нему удобно находить строку.
+
+---
+
+## Foreign Key
+
+**Foreign key** — внешний ключ, связь между таблицами.
+
+Например:
+
+```sql
+user_id integer REFERENCES users(id)
+```
+
+Это значит:
+
+- в таблице заказов есть `user_id`;
+- он ссылается на пользователя из таблицы `users`.
+
+---
+
+# 6. Подключение к PostgreSQL через psql
+
+Команда:
+
+```bash
+psql -U postgres -d testdb
 ```
 
 Где:
 
-```text
--U admin       пользователь
--d shop        база данных
--h localhost   хост
--p 5432        порт
-```
+- `-U postgres` — пользователь;
+- `-d testdb` — база данных.
 
 ---
 
 ## Полезные команды psql
 
-Показать список баз данных:
+Посмотреть базы данных:
 
 ```sql
 \l
+```
+
+Посмотреть таблицы:
+
+```sql
+\dt
+```
+
+Посмотреть структуру таблицы:
+
+```sql
+\d users
 ```
 
 Подключиться к базе:
 
 ```sql
 \c shop
-```
-
-Показать таблицы:
-
-```sql
-\dt
-```
-
-Показать структуру таблицы:
-
-```sql
-\d users
 ```
 
 Выйти:
@@ -217,54 +299,71 @@ psql -U admin -d shop -h localhost -p 5432
 \! clear
 ```
 
-или на Windows:
-
-```sql
-\! cls
-```
-
 ---
 
-# 5. Создание базы данных
+# 7. Создание базы данных
 
 ```sql
 CREATE DATABASE shop;
 ```
 
-Удаление базы:
+Подключиться к ней:
+
+```sql
+\c shop
+```
+
+Удалить базу:
 
 ```sql
 DROP DATABASE shop;
 ```
 
-Создание пользователя:
+Важно: нельзя удалить базу, к которой ты сейчас подключён.
+
+---
+
+# 8. Типы данных PostgreSQL
+
+Тип данных говорит базе, какие значения можно хранить в столбце.
+
+---
+
+## Числовые типы
+
+### integer
+
+Целое число.
 
 ```sql
-CREATE USER app_user WITH PASSWORD '123456';
+age integer
 ```
 
-Выдать права:
+Примеры:
 
-```sql
-GRANT ALL PRIVILEGES ON DATABASE shop TO app_user;
+```text
+10
+25
+100
 ```
 
 ---
 
-# 6. Типы данных PostgreSQL
+### bigint
 
-## Числовые типы
+Большое целое число.
 
-| Тип | Описание |
-|---|---|
-| `smallint` | маленькое целое число |
-| `integer` / `int` | обычное целое число |
-| `bigint` | большое целое число |
-| `numeric` | точное число, например для денег |
-| `real` | число с плавающей точкой |
-| `double precision` | более точное число с плавающей точкой |
+```sql
+views_count bigint
+```
 
-Пример:
+Используется, когда значений может быть очень много.
+
+---
+
+### numeric
+
+Точное число, часто для денег.
 
 ```sql
 price numeric(10, 2)
@@ -272,10 +371,10 @@ price numeric(10, 2)
 
 Это значит:
 
-- всего 10 цифр;
+- всего до 10 цифр;
 - 2 цифры после запятой.
 
-Например:
+Пример:
 
 ```text
 99999999.99
@@ -283,50 +382,48 @@ price numeric(10, 2)
 
 ---
 
-## Строковые типы
+### real / double precision
 
-| Тип | Описание |
-|---|---|
-| `varchar(n)` | строка максимум n символов |
-| `text` | строка произвольной длины |
-| `char(n)` | строка фиксированной длины |
+Числа с плавающей точкой.
 
-На практике чаще всего используют:
+Для денег лучше **не использовать**, потому что возможны погрешности.
+
+---
+
+## Текстовые типы
+
+### text
+
+Текст любой длины.
 
 ```sql
-text
-varchar(255)
+description text
 ```
 
 ---
 
-## Даты и время
+### varchar(n)
 
-| Тип | Описание |
-|---|---|
-| `date` | дата |
-| `time` | время |
-| `timestamp` | дата и время |
-| `timestamptz` | дата и время с часовым поясом |
-
-Для реальных приложений часто лучше использовать:
+Строка длиной максимум `n`.
 
 ```sql
-timestamptz
+email varchar(255)
 ```
 
-Пример:
+---
 
-```sql
-created_at timestamptz DEFAULT now()
-```
+### char(n)
+
+Строка фиксированной длины.
+
+Используется редко.
 
 ---
 
 ## Логический тип
 
 ```sql
-boolean
+is_active boolean
 ```
 
 Значения:
@@ -336,17 +433,65 @@ true
 false
 ```
 
-Пример:
+---
+
+## Дата и время
+
+### date
+
+Только дата.
 
 ```sql
-is_active boolean DEFAULT true
+birthday date
 ```
+
+Пример:
+
+```text
+2000-05-15
+```
+
+---
+
+### time
+
+Только время.
+
+```sql
+start_time time
+```
+
+---
+
+### timestamp
+
+Дата и время без часового пояса.
+
+```sql
+created_at timestamp
+```
+
+---
+
+### timestamptz
+
+Дата и время с часовым поясом.
+
+```sql
+created_at timestamptz
+```
+
+В реальных проектах часто лучше использовать именно `timestamptz`.
 
 ---
 
 ## UUID
 
-UUID — уникальный идентификатор.
+Уникальный идентификатор.
+
+```sql
+id uuid
+```
 
 Пример:
 
@@ -354,323 +499,211 @@ UUID — уникальный идентификатор.
 550e8400-e29b-41d4-a716-446655440000
 ```
 
-Чтобы использовать генерацию UUID:
+Для генерации UUID часто используют расширение:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 ```
 
-Пример поля:
+И потом:
 
 ```sql
 id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
 ```
 
-В новых версиях PostgreSQL также можно использовать:
-
-```sql
-gen_random_uuid()
-```
-
-Для этого:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-```
-
 ---
 
-## JSON и JSONB
+## JSON / JSONB
 
 PostgreSQL умеет хранить JSON.
+
+Лучше чаще использовать `jsonb`, потому что он оптимизирован для поиска.
 
 ```sql
 data jsonb
 ```
 
-Лучше чаще использовать `jsonb`, потому что он эффективнее для поиска и индексации.
-
 Пример:
 
-```sql
-CREATE TABLE events (
-    id serial PRIMARY KEY,
-    payload jsonb
-);
+```json
+{
+  "color": "red",
+  "size": "XL"
+}
 ```
 
 ---
 
-# 7. Создание таблиц
+# 9. Создание таблицы
 
-## Простейшая таблица
+Создадим таблицу пользователей:
 
 ```sql
 CREATE TABLE users (
-    id serial PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name text NOT NULL,
-    email text NOT NULL,
-    age int
+    email text NOT NULL UNIQUE,
+    age integer,
+    is_active boolean DEFAULT true,
+    created_at timestamptz DEFAULT now()
 );
 ```
 
-Что здесь происходит:
-
-```sql
-id serial PRIMARY KEY
-```
-
-- `id` — поле;
-- `serial` — автоинкремент;
-- `PRIMARY KEY` — первичный ключ.
-
-```sql
-name text NOT NULL
-```
-
-- `name` — имя пользователя;
-- `text` — строка;
-- `NOT NULL` — значение обязательно.
+Разберём подробно.
 
 ---
 
-## Современный вариант вместо serial
-
-Сейчас часто используют:
+## id SERIAL PRIMARY KEY
 
 ```sql
-GENERATED ALWAYS AS IDENTITY
+id SERIAL PRIMARY KEY
 ```
 
-Пример:
+`SERIAL` — автоматическое увеличение числа.
 
-```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL,
-    email text NOT NULL
-);
+Если добавить пользователя без `id`, PostgreSQL сам поставит:
+
+```text
+1, потом 2, потом 3...
 ```
 
-Это более современный стандарт SQL.
-
----
-
-# 8. Ограничения таблиц
-
-Ограничения нужны, чтобы база данных сама защищала данные от ошибок.
-
-## PRIMARY KEY
-
-Первичный ключ уникально идентифицирует строку.
-
-```sql
-id bigint PRIMARY KEY
-```
-
-Обычно:
-
-- не может быть `NULL`;
-- должен быть уникальным.
+`PRIMARY KEY` — главный идентификатор.
 
 ---
 
 ## NOT NULL
 
-Запрещает пустое значение.
-
 ```sql
-email text NOT NULL
+name text NOT NULL
 ```
+
+Это значит: поле обязательно.
+
+Нельзя добавить пользователя без имени.
 
 ---
 
 ## UNIQUE
 
-Гарантирует уникальность.
-
 ```sql
-email text UNIQUE
+email text NOT NULL UNIQUE
 ```
 
-Теперь нельзя добавить двух пользователей с одинаковым email.
+Это значит: email должен быть уникальным.
 
----
-
-## CHECK
-
-Проверяет условие.
-
-```sql
-age int CHECK (age >= 0)
-```
-
-Пример:
-
-```sql
-CREATE TABLE products (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL,
-    price numeric(10, 2) NOT NULL CHECK (price >= 0)
-);
-```
+Нельзя создать двух пользователей с одинаковым email.
 
 ---
 
 ## DEFAULT
 
-Значение по умолчанию.
+```sql
+is_active boolean DEFAULT true
+```
+
+Если при вставке не указать значение, будет `true`.
+
+---
+
+## now()
 
 ```sql
 created_at timestamptz DEFAULT now()
 ```
 
-Пример:
-
-```sql
-CREATE TABLE posts (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    title text NOT NULL,
-    is_published boolean DEFAULT false,
-    created_at timestamptz DEFAULT now()
-);
-```
+При создании записи автоматически сохранится текущее время.
 
 ---
 
-## FOREIGN KEY
-
-Внешний ключ связывает одну таблицу с другой.
-
-Пример:
-
-```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL
-);
-
-CREATE TABLE orders (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id bigint NOT NULL REFERENCES users(id),
-    total numeric(10, 2) NOT NULL
-);
-```
-
-Здесь:
-
-```sql
-user_id bigint NOT NULL REFERENCES users(id)
-```
-
-означает:
-
-- заказ принадлежит пользователю;
-- нельзя создать заказ для несуществующего пользователя.
-
----
-
-# 9. Удаление и изменение таблиц
-
-## Удалить таблицу
+# 10. Удаление таблицы
 
 ```sql
 DROP TABLE users;
 ```
 
-Если таблица может быть связана с другими:
+Если таблица может не существовать:
 
 ```sql
-DROP TABLE users CASCADE;
-```
-
-`CASCADE` удалит зависимые объекты. Используй осторожно.
-
----
-
-## Добавить колонку
-
-```sql
-ALTER TABLE users ADD COLUMN phone text;
+DROP TABLE IF EXISTS users;
 ```
 
 ---
 
-## Удалить колонку
+# 11. Изменение таблицы
+
+Добавить колонку:
 
 ```sql
-ALTER TABLE users DROP COLUMN phone;
+ALTER TABLE users
+ADD COLUMN phone text;
+```
+
+Удалить колонку:
+
+```sql
+ALTER TABLE users
+DROP COLUMN phone;
+```
+
+Переименовать колонку:
+
+```sql
+ALTER TABLE users
+RENAME COLUMN name TO full_name;
+```
+
+Переименовать таблицу:
+
+```sql
+ALTER TABLE users
+RENAME TO app_users;
+```
+
+Добавить ограничение:
+
+```sql
+ALTER TABLE users
+ADD CONSTRAINT users_age_check CHECK (age >= 0);
 ```
 
 ---
 
-## Изменить тип колонки
-
-```sql
-ALTER TABLE users ALTER COLUMN age TYPE bigint;
-```
-
----
-
-## Добавить ограничение
-
-```sql
-ALTER TABLE users ADD CONSTRAINT users_email_unique UNIQUE (email);
-```
-
----
-
-## Удалить ограничение
-
-```sql
-ALTER TABLE users DROP CONSTRAINT users_email_unique;
-```
-
----
-
-# 10. CRUD-операции
-
-CRUD:
-
-- `CREATE` — создать данные;
-- `READ` — прочитать данные;
-- `UPDATE` — обновить данные;
-- `DELETE` — удалить данные.
-
----
-
-## INSERT
-
-Добавить пользователя:
+# 12. INSERT — добавление данных
 
 ```sql
 INSERT INTO users (name, email, age)
 VALUES ('Ivan', 'ivan@example.com', 25);
 ```
 
-Добавить несколько пользователей:
+Можно добавить несколько строк:
 
 ```sql
 INSERT INTO users (name, email, age)
-VALUES 
+VALUES
     ('Anna', 'anna@example.com', 30),
     ('Petr', 'petr@example.com', 22),
     ('Maria', 'maria@example.com', 27);
 ```
 
-Вернуть добавленную строку:
+---
+
+## INSERT RETURNING
+
+PostgreSQL умеет сразу возвращать добавленную строку:
 
 ```sql
 INSERT INTO users (name, email, age)
-VALUES ('Alex', 'alex@example.com', 20)
+VALUES ('Oleg', 'oleg@example.com', 35)
 RETURNING *;
 ```
 
+Очень полезно в backend-разработке.
+
 ---
 
-## SELECT
+# 13. SELECT — получение данных
 
-Получить все данные:
+Получить все строки:
 
 ```sql
 SELECT * FROM users;
@@ -684,152 +717,68 @@ SELECT id, name, email FROM users;
 
 ---
 
-## WHERE
-
-Фильтрация:
+## WHERE — фильтрация
 
 ```sql
-SELECT * FROM users
+SELECT *
+FROM users
 WHERE age > 25;
 ```
 
-Несколько условий:
+---
+
+## Операторы сравнения
 
 ```sql
-SELECT * FROM users
-WHERE age > 20 AND age < 30;
+=
+!=
+<>
+>
+<
+>=
+<=
 ```
 
-Или:
+Примеры:
 
 ```sql
-SELECT * FROM users
-WHERE age < 20 OR age > 60;
+SELECT * FROM users WHERE age = 25;
+SELECT * FROM users WHERE age >= 18;
+SELECT * FROM users WHERE age <> 30;
 ```
+
+`<>` и `!=` означают "не равно".
 
 ---
 
-## UPDATE
-
-Обновить данные:
+## AND / OR
 
 ```sql
-UPDATE users
-SET age = 26
-WHERE id = 1;
+SELECT *
+FROM users
+WHERE age > 18 AND is_active = true;
 ```
 
-Важно: почти всегда нужен `WHERE`.
-
-Опасный запрос:
-
 ```sql
-UPDATE users
-SET age = 0;
-```
-
-Он обновит все строки.
-
----
-
-## DELETE
-
-Удалить строку:
-
-```sql
-DELETE FROM users
-WHERE id = 1;
-```
-
-Опасный запрос:
-
-```sql
-DELETE FROM users;
-```
-
-Он удалит все строки.
-
----
-
-# 11. Сортировка, лимиты, смещения
-
-## ORDER BY
-
-```sql
-SELECT * FROM users
-ORDER BY age ASC;
-```
-
-`ASC` — по возрастанию.
-
-```sql
-SELECT * FROM users
-ORDER BY age DESC;
-```
-
-`DESC` — по убыванию.
-
----
-
-## LIMIT
-
-```sql
-SELECT * FROM users
-LIMIT 10;
-```
-
-Вернёт максимум 10 строк.
-
----
-
-## OFFSET
-
-```sql
-SELECT * FROM users
-ORDER BY id
-LIMIT 10 OFFSET 20;
-```
-
-Пропустит 20 строк и вернёт следующие 10.
-
-Используется для пагинации, но на больших таблицах может быть медленным.
-
----
-
-# 12. Операторы сравнения
-
-```sql
-=       равно
-<>      не равно
-!=      не равно
->       больше
-<       меньше
->=      больше или равно
-<=      меньше или равно
-```
-
-Пример:
-
-```sql
-SELECT * FROM products
-WHERE price >= 1000;
+SELECT *
+FROM users
+WHERE age < 18 OR age > 65;
 ```
 
 ---
-
-# 13. BETWEEN, IN, LIKE, ILIKE, IS NULL
 
 ## BETWEEN
 
 ```sql
-SELECT * FROM products
-WHERE price BETWEEN 100 AND 500;
+SELECT *
+FROM users
+WHERE age BETWEEN 18 AND 30;
 ```
 
-То же самое:
+Это значит:
 
-```sql
-WHERE price >= 100 AND price <= 500
+```text
+age >= 18 AND age <= 30
 ```
 
 ---
@@ -837,129 +786,488 @@ WHERE price >= 100 AND price <= 500
 ## IN
 
 ```sql
-SELECT * FROM users
-WHERE id IN (1, 2, 3);
+SELECT *
+FROM users
+WHERE age IN (20, 25, 30);
 ```
 
 ---
 
 ## LIKE
 
-Поиск по шаблону, чувствительный к регистру:
+Поиск по шаблону.
 
 ```sql
-SELECT * FROM users
-WHERE name LIKE 'A%';
+SELECT *
+FROM users
+WHERE email LIKE '%@gmail.com';
 ```
 
 `%` означает любое количество символов.
+
+Примеры:
+
+```sql
+WHERE name LIKE 'A%'
+```
+
+Имя начинается на A.
+
+```sql
+WHERE name LIKE '%a'
+```
+
+Имя заканчивается на a.
+
+```sql
+WHERE name LIKE '%nn%'
+```
+
+В имени есть `nn`.
 
 ---
 
 ## ILIKE
 
-Поиск без учёта регистра:
+То же самое, но без учёта регистра.
 
 ```sql
-SELECT * FROM users
-WHERE name ILIKE 'a%';
+SELECT *
+FROM users
+WHERE name ILIKE 'anna';
+```
+
+Найдёт:
+
+```text
+Anna
+ANNA
+anna
 ```
 
 ---
 
 ## IS NULL
 
-Проверка на `NULL`:
+В SQL `NULL` — это отсутствие значения.
+
+Проверять так:
 
 ```sql
-SELECT * FROM users
-WHERE phone IS NULL;
+SELECT *
+FROM users
+WHERE age IS NULL;
 ```
 
-Проверка, что значение не `NULL`:
+Не так:
 
 ```sql
-SELECT * FROM users
-WHERE phone IS NOT NULL;
+WHERE age = NULL
 ```
 
-Важно:
+Это неправильно.
+
+---
+
+## IS NOT NULL
 
 ```sql
-WHERE phone = NULL
-```
-
-так писать нельзя. Нужно:
-
-```sql
-WHERE phone IS NULL
+SELECT *
+FROM users
+WHERE age IS NOT NULL;
 ```
 
 ---
 
-# 14. NULL
+# 14. ORDER BY — сортировка
 
-`NULL` — отсутствие значения.
+```sql
+SELECT *
+FROM users
+ORDER BY age;
+```
 
-Это не ноль, не пустая строка, не `false`.
+По возрастанию:
+
+```sql
+ORDER BY age ASC
+```
+
+По убыванию:
+
+```sql
+ORDER BY age DESC
+```
+
+Сортировка по нескольким полям:
+
+```sql
+SELECT *
+FROM users
+ORDER BY is_active DESC, age ASC;
+```
+
+---
+
+# 15. LIMIT и OFFSET
+
+Ограничить количество строк:
+
+```sql
+SELECT *
+FROM users
+LIMIT 10;
+```
+
+Пропустить первые 10:
+
+```sql
+SELECT *
+FROM users
+LIMIT 10 OFFSET 10;
+```
+
+Часто используется для пагинации.
 
 Пример:
 
 ```sql
-SELECT NULL = NULL;
-```
+-- страница 1
+LIMIT 10 OFFSET 0;
 
-Результат не `true`, а `NULL`, потому что неизвестно, равно ли неизвестное неизвестному.
+-- страница 2
+LIMIT 10 OFFSET 10;
 
-Для сравнения с `NULL` используй:
-
-```sql
-IS NULL
-IS NOT NULL
-```
-
----
-
-## COALESCE
-
-`COALESCE` возвращает первое не-NULL значение.
-
-```sql
-SELECT COALESCE(phone, 'Телефон не указан')
-FROM users;
+-- страница 3
+LIMIT 10 OFFSET 20;
 ```
 
 ---
 
-# 15. Агрегатные функции
+# 16. UPDATE — изменение данных
 
-Агрегатные функции считают значения по группе строк.
+```sql
+UPDATE users
+SET age = 26
+WHERE id = 1;
+```
+
+Очень важно использовать `WHERE`.
+
+Если написать:
+
+```sql
+UPDATE users
+SET age = 26;
+```
+
+То возраст изменится у всех пользователей.
+
+---
+
+## UPDATE нескольких полей
+
+```sql
+UPDATE users
+SET 
+    name = 'Ivan Petrov',
+    age = 27
+WHERE id = 1;
+```
+
+---
+
+## UPDATE RETURNING
+
+```sql
+UPDATE users
+SET age = age + 1
+WHERE id = 1
+RETURNING *;
+```
+
+---
+
+# 17. DELETE — удаление данных
+
+```sql
+DELETE FROM users
+WHERE id = 1;
+```
+
+Без `WHERE` удалятся все строки:
+
+```sql
+DELETE FROM users;
+```
+
+---
+
+## DELETE RETURNING
+
+```sql
+DELETE FROM users
+WHERE id = 2
+RETURNING *;
+```
+
+---
+
+# 18. TRUNCATE
+
+```sql
+TRUNCATE TABLE users;
+```
+
+Удаляет все строки быстрее, чем `DELETE`.
+
+Отличия:
+
+- `DELETE` удаляет строки по одной;
+- `TRUNCATE` очищает таблицу целиком;
+- `TRUNCATE` обычно быстрее;
+- `TRUNCATE` может сбросить счётчик `SERIAL`.
+
+```sql
+TRUNCATE TABLE users RESTART IDENTITY;
+```
+
+---
+
+# 19. Практическая база: интернет-магазин
+
+Создадим несколько таблиц.
+
+---
+
+## Таблица пользователей
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name text NOT NULL,
+    email text NOT NULL UNIQUE,
+    created_at timestamptz DEFAULT now()
+);
+```
+
+---
+
+## Таблица товаров
+
+```sql
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    title text NOT NULL,
+    price numeric(10, 2) NOT NULL CHECK (price >= 0),
+    stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+    created_at timestamptz DEFAULT now()
+);
+```
+
+---
+
+## Таблица заказов
+
+```sql
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    user_id integer NOT NULL REFERENCES users(id),
+    status text NOT NULL DEFAULT 'new',
+    created_at timestamptz DEFAULT now()
+);
+```
+
+---
+
+## Таблица позиций заказа
+
+```sql
+CREATE TABLE order_items (
+    id SERIAL PRIMARY KEY,
+    order_id integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id integer NOT NULL REFERENCES products(id),
+    quantity integer NOT NULL CHECK (quantity > 0),
+    price numeric(10, 2) NOT NULL CHECK (price >= 0)
+);
+```
+
+---
+
+## Что здесь происходит
+
+### users
+
+Хранит пользователей.
+
+### products
+
+Хранит товары.
+
+### orders
+
+Хранит заказы.
+
+`user_id` показывает, кто сделал заказ.
+
+### order_items
+
+Хранит товары внутри заказа.
+
+Один заказ может содержать несколько товаров.
+
+---
+
+# 20. Связи между таблицами
+
+## Один ко многим
+
+Один пользователь может иметь много заказов.
+
+```text
+users 1 ---- N orders
+```
+
+В таблице `orders` есть поле:
+
+```sql
+user_id integer REFERENCES users(id)
+```
+
+---
+
+## Многие ко многим
+
+Например:
+
+- один заказ содержит много товаров;
+- один товар может быть во многих заказах.
+
+Такую связь делают через промежуточную таблицу:
+
+```text
+orders ---- order_items ---- products
+```
+
+---
+
+# 21. JOIN — объединение таблиц
+
+JOIN нужен, чтобы получать связанные данные из нескольких таблиц.
+
+---
+
+## INNER JOIN
+
+Получить заказы вместе с пользователями:
+
+```sql
+SELECT
+    orders.id AS order_id,
+    users.name AS user_name,
+    orders.status,
+    orders.created_at
+FROM orders
+INNER JOIN users ON users.id = orders.user_id;
+```
+
+`INNER JOIN` возвращает только те строки, где есть совпадение в обеих таблицах.
+
+---
+
+## LEFT JOIN
+
+```sql
+SELECT
+    users.id,
+    users.name,
+    orders.id AS order_id
+FROM users
+LEFT JOIN orders ON orders.user_id = users.id;
+```
+
+`LEFT JOIN` вернёт всех пользователей, даже если у них нет заказов.
+
+Если заказа нет, поля заказа будут `NULL`.
+
+---
+
+## RIGHT JOIN
+
+Используется редко.
+
+```sql
+SELECT *
+FROM orders
+RIGHT JOIN users ON users.id = orders.user_id;
+```
+
+Обычно можно заменить на `LEFT JOIN`, поменяв таблицы местами.
+
+---
+
+## FULL JOIN
+
+Возвращает все строки из обеих таблиц:
+
+```sql
+SELECT *
+FROM users
+FULL JOIN orders ON orders.user_id = users.id;
+```
+
+Используется нечасто.
+
+---
+
+# 22. Агрегатные функции
+
+Агрегатные функции считают данные по группе строк.
+
+---
 
 ## COUNT
 
+Количество строк:
+
 ```sql
-SELECT COUNT(*) FROM users;
+SELECT COUNT(*)
+FROM users;
+```
+
+Количество заказов пользователя:
+
+```sql
+SELECT COUNT(*)
+FROM orders
+WHERE user_id = 1;
 ```
 
 ---
 
 ## SUM
 
+Сумма:
+
 ```sql
-SELECT SUM(total) FROM orders;
+SELECT SUM(quantity)
+FROM order_items;
 ```
 
 ---
 
 ## AVG
 
+Среднее значение:
+
 ```sql
-SELECT AVG(price) FROM products;
+SELECT AVG(price)
+FROM products;
 ```
 
 ---
 
-## MIN и MAX
+## MIN / MAX
 
 ```sql
 SELECT MIN(price), MAX(price)
@@ -968,184 +1276,104 @@ FROM products;
 
 ---
 
-# 16. GROUP BY
+# 23. GROUP BY
 
 `GROUP BY` группирует строки.
 
-Пример: сумма заказов по каждому пользователю.
+Например, посчитать количество заказов каждого пользователя:
 
 ```sql
-SELECT user_id, SUM(total)
-FROM orders
-GROUP BY user_id;
-```
-
-Пример с количеством заказов:
-
-```sql
-SELECT user_id, COUNT(*) AS orders_count
-FROM orders
-GROUP BY user_id;
+SELECT
+    users.id,
+    users.name,
+    COUNT(orders.id) AS orders_count
+FROM users
+LEFT JOIN orders ON orders.user_id = users.id
+GROUP BY users.id, users.name;
 ```
 
 ---
 
-# 17. HAVING
+## Важно
+
+Если ты используешь агрегатные функции и обычные колонки, обычные колонки должны быть в `GROUP BY`.
+
+Неправильно:
+
+```sql
+SELECT name, COUNT(*)
+FROM users;
+```
+
+Правильно:
+
+```sql
+SELECT name, COUNT(*)
+FROM users
+GROUP BY name;
+```
+
+---
+
+# 24. HAVING
 
 `WHERE` фильтрует строки до группировки.
 
 `HAVING` фильтрует группы после группировки.
 
-Пример: пользователи, у которых больше 3 заказов.
+Найти пользователей, у которых больше 2 заказов:
 
 ```sql
-SELECT user_id, COUNT(*) AS orders_count
-FROM orders
-GROUP BY user_id
-HAVING COUNT(*) > 3;
-```
-
----
-
-# 18. JOIN
-
-`JOIN` нужен, чтобы получать данные из нескольких таблиц.
-
-Создадим пример:
-
-```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL
-);
-
-CREATE TABLE orders (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id bigint NOT NULL REFERENCES users(id),
-    total numeric(10, 2) NOT NULL
-);
-```
-
----
-
-## INNER JOIN
-
-Возвращает только строки, где есть совпадения в обеих таблицах.
-
-```sql
-SELECT 
+SELECT
     users.id,
     users.name,
-    orders.id AS order_id,
-    orders.total
+    COUNT(orders.id) AS orders_count
 FROM users
-INNER JOIN orders ON orders.user_id = users.id;
+JOIN orders ON orders.user_id = users.id
+GROUP BY users.id, users.name
+HAVING COUNT(orders.id) > 2;
 ```
-
-Если у пользователя нет заказов, он не попадёт в результат.
 
 ---
 
-## LEFT JOIN
+# 25. Подзапросы
 
-Возвращает все строки из левой таблицы и совпадения из правой.
-
-```sql
-SELECT 
-    users.id,
-    users.name,
-    orders.id AS order_id,
-    orders.total
-FROM users
-LEFT JOIN orders ON orders.user_id = users.id;
-```
-
-Если у пользователя нет заказов, он всё равно будет в результате, а поля заказа будут `NULL`.
+Подзапрос — запрос внутри запроса.
 
 ---
 
-## RIGHT JOIN
+## Пример
 
-Возвращает все строки из правой таблицы.
+Найти товары дороже средней цены:
 
 ```sql
 SELECT *
-FROM users
-RIGHT JOIN orders ON orders.user_id = users.id;
+FROM products
+WHERE price > (
+    SELECT AVG(price)
+    FROM products
+);
 ```
-
-На практике используется реже, потому что почти всегда можно переписать через `LEFT JOIN`.
 
 ---
 
-## FULL JOIN
-
-Возвращает все строки из обеих таблиц.
+## Подзапрос в FROM
 
 ```sql
 SELECT *
-FROM users
-FULL JOIN orders ON orders.user_id = users.id;
-```
-
----
-
-## CROSS JOIN
-
-Декартово произведение: каждая строка с каждой.
-
-```sql
-SELECT *
-FROM users
-CROSS JOIN products;
-```
-
-Использовать осторожно.
-
----
-
-# 19. Алиасы
-
-Алиасы делают запросы короче и читаемее.
-
-```sql
-SELECT 
-    u.id,
-    u.name,
-    o.id AS order_id,
-    o.total
-FROM users AS u
-JOIN orders AS o ON o.user_id = u.id;
-```
-
-`AS` можно опускать:
-
-```sql
-FROM users u
-```
-
----
-
-# 20. Подзапросы
-
-## Подзапрос в WHERE
-
-Найти пользователей, у которых есть заказы:
-
-```sql
-SELECT *
-FROM users
-WHERE id IN (
-    SELECT user_id
+FROM (
+    SELECT user_id, COUNT(*) AS orders_count
     FROM orders
-);
+    GROUP BY user_id
+) AS user_orders
+WHERE orders_count > 2;
 ```
 
 ---
 
 ## EXISTS
 
-Часто лучше использовать `EXISTS`:
+Проверить, есть ли связанные строки:
 
 ```sql
 SELECT *
@@ -1157,337 +1385,293 @@ WHERE EXISTS (
 );
 ```
 
----
-
-## Подзапрос в FROM
-
-```sql
-SELECT avg_orders.total_avg
-FROM (
-    SELECT AVG(total) AS total_avg
-    FROM orders
-) AS avg_orders;
-```
+Это значит: найти пользователей, у которых есть хотя бы один заказ.
 
 ---
 
-# 21. CTE — WITH-запросы
+# 26. CTE — WITH-запросы
 
-CTE делает сложные запросы понятнее.
+CTE помогает писать сложные запросы понятнее.
 
 ```sql
 WITH user_orders AS (
-    SELECT 
-        user_id,
-        COUNT(*) AS orders_count,
-        SUM(total) AS total_sum
+    SELECT user_id, COUNT(*) AS orders_count
     FROM orders
     GROUP BY user_id
 )
-SELECT 
-    u.name,
-    uo.orders_count,
-    uo.total_sum
-FROM users u
-JOIN user_orders uo ON uo.user_id = u.id;
+SELECT
+    users.name,
+    user_orders.orders_count
+FROM users
+JOIN user_orders ON user_orders.user_id = users.id;
 ```
 
-CTE читается как временная именованная таблица внутри запроса.
+CTE — это временная именованная таблица внутри одного запроса.
 
 ---
 
-# 22. Оконные функции
+# 27. UNION
 
-Оконные функции позволяют считать значения по набору строк, не сворачивая результат как `GROUP BY`.
-
-## ROW_NUMBER
+`UNION` объединяет результаты нескольких запросов.
 
 ```sql
-SELECT 
+SELECT email FROM users
+UNION
+SELECT email FROM admins;
+```
+
+`UNION` убирает дубликаты.
+
+Если нужны дубликаты:
+
+```sql
+SELECT email FROM users
+UNION ALL
+SELECT email FROM admins;
+```
+
+---
+
+# 28. DISTINCT
+
+Убрать дубликаты:
+
+```sql
+SELECT DISTINCT status
+FROM orders;
+```
+
+---
+
+## DISTINCT ON
+
+Особенность PostgreSQL.
+
+Например, получить последний заказ каждого пользователя:
+
+```sql
+SELECT DISTINCT ON (user_id)
     id,
-    name,
-    ROW_NUMBER() OVER (ORDER BY id) AS row_num
+    user_id,
+    status,
+    created_at
+FROM orders
+ORDER BY user_id, created_at DESC;
+```
+
+Важно: `ORDER BY` должен начинаться с колонок из `DISTINCT ON`.
+
+---
+
+# 29. CASE
+
+`CASE` — условная логика в SQL.
+
+```sql
+SELECT
+    title,
+    price,
+    CASE
+        WHEN price < 100 THEN 'cheap'
+        WHEN price < 1000 THEN 'normal'
+        ELSE 'expensive'
+    END AS price_category
+FROM products;
+```
+
+---
+
+# 30. COALESCE
+
+`COALESCE` возвращает первое не-NULL значение.
+
+```sql
+SELECT COALESCE(age, 0)
 FROM users;
 ```
 
+Если `age = NULL`, вернётся `0`.
+
 ---
 
-## RANK
+# 31. NULL — очень важная тема
+
+`NULL` — это не ноль и не пустая строка.
+
+`NULL` значит: значение неизвестно или отсутствует.
+
+---
+
+## Примеры
 
 ```sql
-SELECT 
-    id,
-    name,
-    score,
-    RANK() OVER (ORDER BY score DESC) AS rank
-FROM players;
+SELECT NULL = NULL;
+```
+
+Результат не `true`, а `NULL`.
+
+Правильно проверять:
+
+```sql
+IS NULL
+IS NOT NULL
 ```
 
 ---
 
-## SUM OVER
+## NULL в выражениях
 
 ```sql
-SELECT 
-    id,
-    total,
-    SUM(total) OVER (ORDER BY id) AS running_total
-FROM orders;
+SELECT 10 + NULL;
 ```
 
-Это накопительная сумма.
-
----
-
-## PARTITION BY
-
-```sql
-SELECT 
-    user_id,
-    id AS order_id,
-    total,
-    SUM(total) OVER (PARTITION BY user_id) AS user_total
-FROM orders;
-```
-
-Считает сумму заказов отдельно для каждого пользователя.
-
----
-
-# 23. Нормализация данных
-
-Нормализация — это способ проектирования таблиц так, чтобы:
-
-- не было лишнего дублирования;
-- данные были целостными;
-- изменения не приводили к противоречиям.
-
----
-
-## Плохой пример
+Результат:
 
 ```text
-orders
-------------------------------------------------
-id | user_name | user_email | product_name | price
+NULL
 ```
 
-Проблемы:
-
-- имя пользователя повторяется в каждом заказе;
-- email повторяется;
-- название товара повторяется;
-- если email изменился, нужно менять много строк.
+Потому что если часть значения неизвестна, итог тоже неизвестен.
 
 ---
 
-## Хороший пример
+# 32. Ограничения Constraints
 
-```text
-users
-id | name | email
-
-products
-id | name | price
-
-orders
-id | user_id | created_at
-
-order_items
-id | order_id | product_id | quantity | price
-```
-
-Так данные разделены логически.
+Ограничения защищают данные от ошибок.
 
 ---
 
-# 24. Связи между таблицами
-
-## Один к одному
-
-Например:
-
-```text
-users
-user_profiles
-```
-
-Один пользователь имеет один профиль.
+## PRIMARY KEY
 
 ```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL UNIQUE
-);
-
-CREATE TABLE user_profiles (
-    user_id bigint PRIMARY KEY REFERENCES users(id),
-    first_name text,
-    last_name text
-);
+id SERIAL PRIMARY KEY
 ```
+
+Гарантирует уникальность строки.
 
 ---
 
-## Один ко многим
-
-Один пользователь может иметь много заказов.
+## UNIQUE
 
 ```sql
-CREATE TABLE orders (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id bigint NOT NULL REFERENCES users(id)
-);
+email text UNIQUE
 ```
+
+Не даёт двум строкам иметь одинаковый email.
 
 ---
 
-## Многие ко многим
-
-Например: товары и категории.
-
-Один товар может быть в нескольких категориях.
-
-Одна категория может содержать много товаров.
-
-Нужна промежуточная таблица:
+## NOT NULL
 
 ```sql
-CREATE TABLE products (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL
-);
-
-CREATE TABLE categories (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL
-);
-
-CREATE TABLE product_categories (
-    product_id bigint NOT NULL REFERENCES products(id),
-    category_id bigint NOT NULL REFERENCES categories(id),
-    PRIMARY KEY (product_id, category_id)
-);
+name text NOT NULL
 ```
+
+Не даёт сохранить пустое значение.
 
 ---
 
-# 25. ON DELETE и ON UPDATE
-
-Когда есть внешний ключ, важно определить поведение при удалении родительской записи.
-
-## ON DELETE RESTRICT / NO ACTION
-
-Запретить удаление, если есть связанные записи.
+## CHECK
 
 ```sql
-user_id bigint REFERENCES users(id) ON DELETE RESTRICT
+age integer CHECK (age >= 0)
 ```
+
+Не даст вставить отрицательный возраст.
+
+---
+
+## FOREIGN KEY
+
+```sql
+user_id integer REFERENCES users(id)
+```
+
+Не даст создать заказ для несуществующего пользователя.
+
+---
+
+# 33. ON DELETE
+
+Когда удаляем строку, на которую ссылаются другие строки, PostgreSQL должен понять, что делать.
 
 ---
 
 ## ON DELETE CASCADE
 
-Удалить связанные записи автоматически.
-
 ```sql
-user_id bigint REFERENCES users(id) ON DELETE CASCADE
+order_id integer REFERENCES orders(id) ON DELETE CASCADE
 ```
 
-Если удалить пользователя, удалятся его заказы.
-
-Использовать осторожно.
+Если удалить заказ, удалятся и его позиции.
 
 ---
 
 ## ON DELETE SET NULL
 
-При удалении родителя поставить `NULL`.
-
 ```sql
-user_id bigint REFERENCES users(id) ON DELETE SET NULL
+user_id integer REFERENCES users(id) ON DELETE SET NULL
 ```
 
-Для этого колонка должна позволять `NULL`.
+Если удалить пользователя, поле `user_id` станет `NULL`.
 
 ---
 
-# 26. Индексы
+## ON DELETE RESTRICT / NO ACTION
+
+Запрещает удаление, если есть связанные записи.
+
+---
+
+# 34. Индексы
 
 Индекс — структура данных, которая ускоряет поиск.
 
-Без индекса PostgreSQL может читать всю таблицу.
+Простая аналогия: оглавление в книге.
 
-С индексом PostgreSQL может быстрее найти нужные строки.
+Без оглавления нужно листать всю книгу.
+
+С оглавлением можно быстро найти нужную страницу.
 
 ---
 
 ## Создание индекса
 
 ```sql
-CREATE INDEX idx_users_email ON users(email);
-```
-
----
-
-## UNIQUE INDEX
-
-```sql
-CREATE UNIQUE INDEX idx_users_email_unique ON users(email);
-```
-
-Но если нужна уникальность, чаще проще:
-
-```sql
-email text UNIQUE
+CREATE INDEX idx_users_email
+ON users(email);
 ```
 
 ---
 
 ## Когда индекс полезен
 
-Индекс полезен для колонок, которые часто используются в:
+Если часто ищешь по колонке:
 
 ```sql
-WHERE
-JOIN
-ORDER BY
-GROUP BY
+SELECT *
+FROM users
+WHERE email = 'ivan@example.com';
 ```
 
-Пример:
-
-```sql
-SELECT * FROM users WHERE email = 'ivan@example.com';
-```
-
-Здесь индекс по `email` может быть полезен.
+Индекс на `email` поможет.
 
 ---
 
-## Когда индекс может быть вреден
-
-Индексы:
-
-- занимают место;
-- замедляют `INSERT`;
-- замедляют `UPDATE`;
-- замедляют `DELETE`.
-
-Потому что при изменении данных нужно обновлять не только таблицу, но и индексы.
-
----
-
-## Индекс для внешнего ключа
-
-PostgreSQL автоматически создаёт индекс для `PRIMARY KEY` и `UNIQUE`.
-
-Но для `FOREIGN KEY` индекс автоматически не создаётся.
-
-Если часто делаешь JOIN или удаляешь родительские записи, стоит создать индекс:
+## Индекс для сортировки
 
 ```sql
-CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_created_at
+ON orders(created_at);
+```
+
+Может помочь запросам:
+
+```sql
+SELECT *
+FROM orders
+ORDER BY created_at DESC
+LIMIT 10;
 ```
 
 ---
@@ -1495,42 +1679,77 @@ CREATE INDEX idx_orders_user_id ON orders(user_id);
 ## Составной индекс
 
 ```sql
-CREATE INDEX idx_orders_user_status ON orders(user_id, status);
+CREATE INDEX idx_orders_user_id_created_at
+ON orders(user_id, created_at DESC);
 ```
 
-Полезен для запросов:
+Полезен для запроса:
 
 ```sql
-WHERE user_id = 1 AND status = 'paid'
+SELECT *
+FROM orders
+WHERE user_id = 1
+ORDER BY created_at DESC;
 ```
 
-Также может использоваться для:
+---
+
+## Важный порядок колонок
+
+Индекс:
+
+```sql
+ON orders(user_id, created_at)
+```
+
+хорош для:
 
 ```sql
 WHERE user_id = 1
 ```
 
-Но не всегда хорошо для:
+и для:
 
 ```sql
-WHERE status = 'paid'
+WHERE user_id = 1 AND created_at > now() - interval '1 month'
 ```
 
-Порядок колонок в составном индексе важен.
+Но не всегда хорош для:
+
+```sql
+WHERE created_at > now() - interval '1 month'
+```
+
+Потому что первая колонка индекса — `user_id`.
+
+---
+
+## Уникальный индекс
+
+```sql
+CREATE UNIQUE INDEX idx_users_email_unique
+ON users(email);
+```
+
+Но обычно проще:
+
+```sql
+email text UNIQUE
+```
 
 ---
 
 ## Частичный индекс
 
-Индекс только по части таблицы.
+Индекс только по части строк.
 
 ```sql
-CREATE INDEX idx_orders_unpaid
-ON orders(user_id)
-WHERE status = 'unpaid';
+CREATE INDEX idx_active_users_email
+ON users(email)
+WHERE is_active = true;
 ```
 
-Полезно, если часто ищешь только неоплаченные заказы.
+Полезно, если часто ищешь только активных пользователей.
 
 ---
 
@@ -1538,22 +1757,20 @@ WHERE status = 'unpaid';
 
 ```sql
 CREATE INDEX idx_users_lower_email
-ON users (lower(email));
+ON users(lower(email));
 ```
 
-Тогда запрос:
+Запрос:
 
 ```sql
 SELECT *
 FROM users
-WHERE lower(email) = lower('IVAN@EXAMPLE.COM');
+WHERE lower(email) = lower('IVAN@example.com');
 ```
-
-может использовать индекс.
 
 ---
 
-# 27. EXPLAIN и EXPLAIN ANALYZE
+# 35. EXPLAIN
 
 `EXPLAIN` показывает план выполнения запроса.
 
@@ -1564,7 +1781,7 @@ FROM users
 WHERE email = 'ivan@example.com';
 ```
 
-`EXPLAIN ANALYZE` реально выполняет запрос и показывает фактическое время.
+Лучше использовать:
 
 ```sql
 EXPLAIN ANALYZE
@@ -1573,72 +1790,96 @@ FROM users
 WHERE email = 'ivan@example.com';
 ```
 
----
-
-## Основные термины в плане
-
-## Seq Scan
-
-Последовательное сканирование всей таблицы.
-
-```text
-Seq Scan on users
-```
-
-Не всегда плохо. Для маленьких таблиц это нормально.
+`EXPLAIN ANALYZE` реально выполняет запрос и показывает время.
 
 ---
 
-## Index Scan
+## Основные термины
 
-Использование индекса.
+### Seq Scan
 
-```text
-Index Scan using idx_users_email on users
-```
+Последовательное сканирование таблицы.
 
----
+PostgreSQL читает всю таблицу.
 
-## Bitmap Index Scan
-
-Часто используется, когда нужно найти много строк через индекс.
+На маленьких таблицах это нормально.
 
 ---
 
-## Nested Loop
+### Index Scan
 
-Один из алгоритмов JOIN.
+Используется индекс.
 
-Хорош для маленьких наборов или когда есть хороший индекс.
-
----
-
-## Hash Join
-
-Часто хорош для больших наборов данных.
+Обычно хорошо, если нужно найти небольшую часть строк.
 
 ---
 
-# 28. Транзакции
+### Bitmap Index Scan
 
-Транзакция — это группа операций, которые выполняются как единое целое.
+Комбинированный способ через индекс.
 
-Главный принцип: либо выполняется всё, либо ничего.
+Часто встречается при выборке большого количества строк.
 
 ---
 
 ## Пример
 
-Допустим, пользователь переводит деньги другому пользователю.
+```sql
+EXPLAIN ANALYZE
+SELECT *
+FROM users
+WHERE email = 'ivan@example.com';
+```
 
-Нужно:
+Если индекса нет, может быть:
 
-1. списать деньги с одного счёта;
-2. зачислить деньги на другой счёт.
+```text
+Seq Scan on users
+```
 
-Если первая операция прошла, а вторая нет, данные испортятся.
+Создаём индекс:
 
-Поэтому нужна транзакция.
+```sql
+CREATE INDEX idx_users_email ON users(email);
+```
+
+Повторяем:
+
+```sql
+EXPLAIN ANALYZE
+SELECT *
+FROM users
+WHERE email = 'ivan@example.com';
+```
+
+Теперь может быть:
+
+```text
+Index Scan using idx_users_email
+```
+
+---
+
+# 36. Транзакции
+
+Транзакция — набор операций, которые выполняются как единое целое.
+
+Главная идея:
+
+> либо выполняется всё, либо не выполняется ничего.
+
+---
+
+## Пример
+
+Покупатель оформляет заказ:
+
+1. создать заказ;
+2. добавить товары в заказ;
+3. уменьшить остатки на складе;
+4. списать оплату.
+
+Если что-то сломалось на шаге 3, нельзя оставить заказ наполовину созданным.
 
 ---
 
@@ -1647,18 +1888,19 @@ Index Scan using idx_users_email on users
 ```sql
 BEGIN;
 
-UPDATE accounts
-SET balance = balance - 100
+UPDATE products
+SET stock = stock - 1
 WHERE id = 1;
 
-UPDATE accounts
-SET balance = balance + 100
-WHERE id = 2;
+INSERT INTO orders (user_id)
+VALUES (1);
 
 COMMIT;
 ```
 
-Если произошла ошибка:
+Если всё хорошо — `COMMIT`.
+
+Если ошибка:
 
 ```sql
 ROLLBACK;
@@ -1666,39 +1908,58 @@ ROLLBACK;
 
 ---
 
-## ACID
+## Пример с откатом
 
-Транзакции обладают свойствами ACID.
+```sql
+BEGIN;
 
-### Atomicity — атомарность
+UPDATE products
+SET stock = stock - 10
+WHERE id = 1;
 
-Всё или ничего.
+-- передумали
+ROLLBACK;
+```
 
-### Consistency — согласованность
-
-Данные остаются корректными.
-
-### Isolation — изоляция
-
-Параллельные транзакции не должны ломать друг друга.
-
-### Durability — долговечность
-
-После `COMMIT` данные сохранены.
+Изменения не сохранятся.
 
 ---
 
-# 29. Уровни изоляции транзакций
+# 37. ACID
 
-PostgreSQL поддерживает:
+Транзакции в PostgreSQL следуют принципам ACID.
 
-```sql
-READ COMMITTED
-REPEATABLE READ
-SERIALIZABLE
-```
+---
 
-Также в SQL есть `READ UNCOMMITTED`, но в PostgreSQL он работает как `READ COMMITTED`.
+## Atomicity — атомарность
+
+Либо всё, либо ничего.
+
+---
+
+## Consistency — согласованность
+
+Данные остаются корректными.
+
+Например, нельзя создать заказ с несуществующим пользователем, если есть foreign key.
+
+---
+
+## Isolation — изолированность
+
+Параллельные транзакции не должны ломать друг друга.
+
+---
+
+## Durability — долговечность
+
+После `COMMIT` данные не должны исчезнуть даже при сбое.
+
+---
+
+# 38. Уровни изоляции транзакций
+
+PostgreSQL поддерживает разные уровни изоляции.
 
 ---
 
@@ -1706,7 +1967,7 @@ SERIALIZABLE
 
 Уровень по умолчанию.
 
-Каждый SQL-запрос внутри транзакции видит только зафиксированные данные на момент начала этого конкретного запроса.
+Транзакция видит только зафиксированные данные.
 
 ```sql
 BEGIN ISOLATION LEVEL READ COMMITTED;
@@ -1716,7 +1977,7 @@ BEGIN ISOLATION LEVEL READ COMMITTED;
 
 ## REPEATABLE READ
 
-Все запросы внутри транзакции видят снимок данных на момент начала транзакции.
+Внутри транзакции данные выглядят одинаково на протяжении всей транзакции.
 
 ```sql
 BEGIN ISOLATION LEVEL REPEATABLE READ;
@@ -1728,57 +1989,78 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 
 Самый строгий уровень.
 
-PostgreSQL старается выполнить транзакции так, как будто они выполнялись последовательно.
+Транзакции выполняются так, будто они идут по очереди.
 
 ```sql
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 ```
 
-Может чаще приводить к ошибкам сериализации, которые приложение должно повторять.
+---
+
+# 39. Блокировки
+
+Блокировка нужна, чтобы две транзакции не изменили одни и те же данные неправильно.
 
 ---
 
-# 30. Блокировки
-
-Блокировки нужны, чтобы параллельные операции не портили данные.
-
-Пример:
+## SELECT FOR UPDATE
 
 ```sql
 BEGIN;
 
 SELECT *
-FROM accounts
+FROM products
 WHERE id = 1
 FOR UPDATE;
 
-UPDATE accounts
-SET balance = balance - 100
+UPDATE products
+SET stock = stock - 1
 WHERE id = 1;
 
 COMMIT;
 ```
 
-`FOR UPDATE` блокирует выбранные строки для изменения другими транзакциями.
+`FOR UPDATE` блокирует выбранную строку до конца транзакции.
 
 ---
 
-# 31. UPSERT: INSERT ON CONFLICT
+## Пример проблемы
+
+На складе остался 1 товар.
+
+Два пользователя одновременно покупают товар.
+
+Без правильной транзакции оба могут купить последний товар.
+
+Правильнее:
+
+```sql
+BEGIN;
+
+SELECT stock
+FROM products
+WHERE id = 1
+FOR UPDATE;
+
+UPDATE products
+SET stock = stock - 1
+WHERE id = 1 AND stock > 0;
+
+COMMIT;
+```
+
+---
+
+# 40. UPSERT — INSERT ON CONFLICT
 
 Иногда нужно:
 
-- вставить строку;
-- если такая уже есть — обновить.
+- если строки нет — добавить;
+- если строка есть — обновить.
 
-Пример:
+---
 
-```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL UNIQUE,
-    name text NOT NULL
-);
-```
+## Пример
 
 ```sql
 INSERT INTO users (email, name)
@@ -1787,11 +2069,11 @@ ON CONFLICT (email)
 DO UPDATE SET name = EXCLUDED.name;
 ```
 
-`EXCLUDED` — это данные, которые пытались вставить.
+`EXCLUDED` — это новая строка, которую пытались вставить.
 
 ---
 
-Если при конфликте ничего делать не нужно:
+## Ничего не делать при конфликте
 
 ```sql
 INSERT INTO users (email, name)
@@ -1802,63 +2084,622 @@ DO NOTHING;
 
 ---
 
-# 32. Представления VIEW
+# 41. Представления Views
 
-`VIEW` — сохранённый запрос.
+View — сохранённый SQL-запрос, который выглядит как таблица.
+
+---
+
+## Создание view
 
 ```sql
-CREATE VIEW user_order_stats AS
-SELECT 
-    u.id,
-    u.name,
-    COUNT(o.id) AS orders_count,
-    COALESCE(SUM(o.total), 0) AS total_sum
-FROM users u
-LEFT JOIN orders o ON o.user_id = u.id
-GROUP BY u.id, u.name;
+CREATE VIEW user_orders_view AS
+SELECT
+    users.id AS user_id,
+    users.name,
+    COUNT(orders.id) AS orders_count
+FROM users
+LEFT JOIN orders ON orders.user_id = users.id
+GROUP BY users.id, users.name;
 ```
 
-Теперь можно писать:
+Использование:
 
 ```sql
 SELECT *
-FROM user_order_stats;
+FROM user_orders_view;
 ```
 
 ---
 
-## MATERIALIZED VIEW
+## Зачем нужны views
 
-Материализованное представление хранит результат физически.
+- упростить сложные запросы;
+- скрыть часть данных;
+- дать удобный интерфейс для отчётов.
+
+---
+
+# 42. Materialized View
+
+Обычный `VIEW` каждый раз выполняет запрос заново.
+
+`MATERIALIZED VIEW` хранит результат физически.
 
 ```sql
-CREATE MATERIALIZED VIEW user_order_stats_mv AS
-SELECT 
+CREATE MATERIALIZED VIEW product_stats AS
+SELECT
+    product_id,
+    SUM(quantity) AS total_sold
+FROM order_items
+GROUP BY product_id;
+```
+
+Обновить:
+
+```sql
+REFRESH MATERIALIZED VIEW product_stats;
+```
+
+---
+
+# 43. Оконные функции
+
+Оконные функции позволяют считать значения по строкам, не объединяя их в одну строку как `GROUP BY`.
+
+---
+
+## ROW_NUMBER
+
+```sql
+SELECT
+    id,
     user_id,
-    COUNT(*) AS orders_count,
-    SUM(total) AS total_sum
-FROM orders
-GROUP BY user_id;
+    created_at,
+    ROW_NUMBER() OVER (
+        PARTITION BY user_id
+        ORDER BY created_at DESC
+    ) AS order_number
+FROM orders;
 ```
 
-Обновить данные:
+Это нумерует заказы каждого пользователя отдельно.
+
+---
+
+## RANK
 
 ```sql
-REFRESH MATERIALIZED VIEW user_order_stats_mv;
+SELECT
+    title,
+    price,
+    RANK() OVER (ORDER BY price DESC) AS price_rank
+FROM products;
+```
+
+Если цены одинаковые, будет одинаковый ранг.
+
+---
+
+## SUM OVER
+
+```sql
+SELECT
+    id,
+    created_at,
+    SUM(price) OVER (ORDER BY created_at) AS running_total
+FROM payments;
+```
+
+Это накопительная сумма.
+
+---
+
+# 44. Работа с датами
+
+Текущая дата:
+
+```sql
+SELECT current_date;
+```
+
+Текущее время:
+
+```sql
+SELECT now();
+```
+
+Добавить интервал:
+
+```sql
+SELECT now() + interval '1 day';
+```
+
+Вычесть:
+
+```sql
+SELECT now() - interval '7 days';
+```
+
+Заказы за последние 7 дней:
+
+```sql
+SELECT *
+FROM orders
+WHERE created_at >= now() - interval '7 days';
 ```
 
 ---
 
-# 33. Функции
+## date_trunc
 
-PostgreSQL позволяет создавать функции.
+Округление даты.
+
+```sql
+SELECT date_trunc('day', created_at)
+FROM orders;
+```
+
+Продажи по дням:
+
+```sql
+SELECT
+    date_trunc('day', orders.created_at) AS day,
+    SUM(order_items.quantity * order_items.price) AS revenue
+FROM orders
+JOIN order_items ON order_items.order_id = orders.id
+GROUP BY day
+ORDER BY day;
+```
+
+---
+
+# 45. JSONB
+
+PostgreSQL хорошо работает с JSON.
+
+Создадим таблицу:
+
+```sql
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    data jsonb NOT NULL,
+    created_at timestamptz DEFAULT now()
+);
+```
+
+Добавим данные:
+
+```sql
+INSERT INTO events (data)
+VALUES (
+    '{"type": "click", "user_id": 1, "page": "/home"}'
+);
+```
+
+---
+
+## Получить поле из JSON
+
+```sql
+SELECT data->'type'
+FROM events;
+```
+
+Вернёт JSON-значение.
+
+```sql
+SELECT data->>'type'
+FROM events;
+```
+
+Вернёт текст.
+
+---
+
+## Фильтрация JSONB
+
+```sql
+SELECT *
+FROM events
+WHERE data->>'type' = 'click';
+```
+
+---
+
+## Проверка наличия ключа
+
+```sql
+SELECT *
+FROM events
+WHERE data ? 'page';
+```
+
+---
+
+## JSONB индекс
+
+```sql
+CREATE INDEX idx_events_data
+ON events USING GIN (data);
+```
+
+GIN-индекс полезен для JSONB-поиска.
+
+---
+
+# 46. Массивы
+
+PostgreSQL умеет хранить массивы.
+
+```sql
+CREATE TABLE posts (
+    id SERIAL PRIMARY KEY,
+    title text,
+    tags text[]
+);
+```
+
+Добавить:
+
+```sql
+INSERT INTO posts (title, tags)
+VALUES ('PostgreSQL intro', ARRAY['postgresql', 'sql', 'database']);
+```
+
+Найти посты с тегом:
+
+```sql
+SELECT *
+FROM posts
+WHERE 'sql' = ANY(tags);
+```
+
+Но в реальных проектах часто лучше делать отдельную таблицу тегов, а не массив.
+
+---
+
+# 47. Enum
+
+Enum — ограниченный список значений.
+
+```sql
+CREATE TYPE order_status AS ENUM ('new', 'paid', 'shipped', 'cancelled');
+```
+
+Использование:
+
+```sql
+CREATE TABLE orders2 (
+    id SERIAL PRIMARY KEY,
+    status order_status NOT NULL DEFAULT 'new'
+);
+```
+
+Плюсы:
+
+- нельзя записать неправильный статус.
+
+Минусы:
+
+- сложнее менять список значений.
+
+В реальных проектах часто вместо enum используют `text + CHECK`.
+
+```sql
+status text CHECK (status IN ('new', 'paid', 'shipped', 'cancelled'))
+```
+
+---
+
+# 48. Нормализация базы данных
+
+Нормализация — это способ проектировать таблицы так, чтобы:
+
+- не было лишнего дублирования;
+- данные были логичными;
+- было меньше ошибок.
+
+---
+
+## Плохой пример
+
+```text
+orders
+id | user_name | user_email | product_title | product_price
+```
+
+Проблемы:
+
+- имя пользователя повторяется в каждом заказе;
+- если email изменился, нужно менять много строк;
+- товар повторяется много раз.
+
+---
+
+## Хороший пример
+
+```text
+users
+id | name | email
+
+products
+id | title | price
+
+orders
+id | user_id
+
+order_items
+id | order_id | product_id | quantity | price
+```
+
+Так данные разделены по смыслу.
+
+---
+
+# 49. Денормализация
+
+Иногда ради скорости данные специально дублируют.
+
+Например, в `order_items` хранят `price`.
+
+Хотя цена есть в `products`.
+
+Почему?
+
+Потому что цена товара может измениться, а в старом заказе должна остаться старая цена.
+
+---
+
+# 50. Миграции
+
+Миграции — это изменения структуры базы данных, сохранённые в файлах.
+
+Например:
+
+```sql
+001_create_users.sql
+002_create_products.sql
+003_add_phone_to_users.sql
+```
+
+Миграции нужны, чтобы:
+
+- команда работала с одинаковой структурой БД;
+- можно было воспроизвести базу;
+- изменения были под контролем Git.
+
+---
+
+## Пример миграции вверх
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email text NOT NULL UNIQUE
+);
+```
+
+## Пример отката
+
+```sql
+DROP TABLE users;
+```
+
+---
+
+# 51. Роли и права
+
+PostgreSQL использует роли.
+
+Роль может быть:
+
+- пользователем;
+- группой;
+- администратором.
+
+---
+
+## Создать пользователя
+
+```sql
+CREATE USER app_user WITH PASSWORD 'strong_password';
+```
+
+---
+
+## Дать права на базу
+
+```sql
+GRANT CONNECT ON DATABASE shop TO app_user;
+```
+
+---
+
+## Дать права на схему
+
+```sql
+GRANT USAGE ON SCHEMA public TO app_user;
+```
+
+---
+
+## Дать права на таблицы
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO app_user;
+```
+
+---
+
+## Дать права на будущие таблицы
+
+```sql
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+```
+
+---
+
+## Отнять права
+
+```sql
+REVOKE DELETE ON users FROM app_user;
+```
+
+---
+
+# 52. Backup и Restore
+
+## pg_dump
+
+Сделать бэкап базы:
+
+```bash
+pg_dump -U postgres -d shop -f shop_backup.sql
+```
+
+---
+
+## Восстановить
+
+```bash
+psql -U postgres -d shop -f shop_backup.sql
+```
+
+---
+
+## Custom формат
+
+```bash
+pg_dump -U postgres -d shop -Fc -f shop_backup.dump
+```
+
+Восстановление:
+
+```bash
+pg_restore -U postgres -d shop shop_backup.dump
+```
+
+---
+
+# 53. VACUUM и ANALYZE
+
+PostgreSQL не всегда физически удаляет старые версии строк сразу.
+
+Из-за MVCC после UPDATE/DELETE могут оставаться "мёртвые" строки.
+
+---
+
+## VACUUM
+
+Очищает мёртвые строки:
+
+```sql
+VACUUM;
+```
+
+---
+
+## ANALYZE
+
+Собирает статистику для планировщика запросов:
+
+```sql
+ANALYZE;
+```
+
+---
+
+## VACUUM ANALYZE
+
+```sql
+VACUUM ANALYZE;
+```
+
+Обычно в PostgreSQL работает autovacuum, но понимать это важно.
+
+---
+
+# 54. MVCC
+
+MVCC — механизм конкурентного доступа в PostgreSQL.
+
+Расшифровка:
+
+```text
+Multi-Version Concurrency Control
+```
+
+Идея:
+
+- когда строку обновляют, PostgreSQL создаёт новую версию строки;
+- старые транзакции могут видеть старую версию;
+- новые транзакции видят новую версию.
+
+Это позволяет читать данные без постоянных блокировок.
+
+---
+
+# 55. Последовательности Sequence
+
+`SERIAL` внутри использует sequence.
 
 Пример:
 
 ```sql
-CREATE OR REPLACE FUNCTION add_numbers(a int, b int)
-RETURNS int
-LANGUAGE sql
+CREATE SEQUENCE users_id_seq;
+```
+
+Получить следующее значение:
+
+```sql
+SELECT nextval('users_id_seq');
+```
+
+Посмотреть текущее:
+
+```sql
+SELECT currval('users_id_seq');
+```
+
+В новых проектах часто используют:
+
+```sql
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+```
+
+Вместо старого:
+
+```sql
+id SERIAL PRIMARY KEY
+```
+
+Современный вариант:
+
+```sql
+CREATE TABLE users (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email text NOT NULL UNIQUE
+);
+```
+
+---
+
+# 56. Функции
+
+PostgreSQL позволяет создавать свои функции.
+
+---
+
+## Простая SQL-функция
+
+```sql
+CREATE FUNCTION add_numbers(a integer, b integer)
+RETURNS integer
+LANGUAGE SQL
 AS $$
     SELECT a + b;
 $$;
@@ -1875,32 +2716,43 @@ SELECT add_numbers(2, 3);
 ## PL/pgSQL функция
 
 ```sql
-CREATE OR REPLACE FUNCTION get_discount(price numeric)
+CREATE FUNCTION get_discount(price numeric)
 RETURNS numeric
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF price > 10000 THEN
-        RETURN price * 0.9;
+    IF price > 1000 THEN
+        RETURN price * 0.10;
     ELSE
-        RETURN price;
+        RETURN 0;
     END IF;
 END;
 $$;
 ```
 
----
-
-# 34. Триггеры
-
-Триггер — функция, которая автоматически срабатывает при `INSERT`, `UPDATE` или `DELETE`.
-
-Пример: автоматически обновлять `updated_at`.
+Использование:
 
 ```sql
-CREATE TABLE posts (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+SELECT get_discount(1500);
+```
+
+---
+
+# 57. Триггеры
+
+Триггер — действие, которое автоматически выполняется при INSERT, UPDATE или DELETE.
+
+---
+
+## Пример: обновлять updated_at
+
+Создадим таблицу:
+
+```sql
+CREATE TABLE articles (
+    id SERIAL PRIMARY KEY,
     title text NOT NULL,
+    content text,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
 );
@@ -1909,7 +2761,7 @@ CREATE TABLE posts (
 Функция:
 
 ```sql
-CREATE OR REPLACE FUNCTION set_updated_at()
+CREATE FUNCTION set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -1923,497 +2775,299 @@ $$;
 Триггер:
 
 ```sql
-CREATE TRIGGER trg_posts_updated_at
-BEFORE UPDATE ON posts
+CREATE TRIGGER articles_set_updated_at
+BEFORE UPDATE ON articles
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 ```
 
+Теперь при обновлении статьи `updated_at` будет меняться автоматически.
+
 ---
 
-# 35. Схемы
+# 58. Full-text search
 
-Схема — пространство имён внутри базы данных.
-
-По умолчанию используется схема:
+PostgreSQL умеет полнотекстовый поиск.
 
 ```sql
-public
-```
-
-Создать схему:
-
-```sql
-CREATE SCHEMA app;
-```
-
-Создать таблицу в схеме:
-
-```sql
-CREATE TABLE app.users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    title text,
+    body text
 );
 ```
 
-Обращение:
+Поиск:
 
 ```sql
 SELECT *
-FROM app.users;
+FROM documents
+WHERE to_tsvector('russian', title || ' ' || body)
+      @@ plainto_tsquery('russian', 'поиск текста');
 ```
 
----
-
-# 36. Права доступа
-
-## Создание роли
+Индекс:
 
 ```sql
-CREATE ROLE app_user LOGIN PASSWORD 'strong_password';
+CREATE INDEX idx_documents_fts
+ON documents
+USING GIN (to_tsvector('russian', title || ' ' || body));
 ```
 
 ---
 
-## Выдать права на подключение
+# 59. Расширения Extensions
+
+Расширения добавляют возможности.
+
+Посмотреть доступные:
 
 ```sql
-GRANT CONNECT ON DATABASE shop TO app_user;
+SELECT *
+FROM pg_available_extensions;
 ```
 
----
-
-## Выдать права на схему
+Установить:
 
 ```sql
-GRANT USAGE ON SCHEMA public TO app_user;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+```
+
+Популярные:
+
+```text
+uuid-ossp
+pgcrypto
+postgis
+pg_trgm
+citext
 ```
 
 ---
 
-## Выдать права на таблицы
+## pgcrypto для UUID
 
 ```sql
-GRANT SELECT, INSERT, UPDATE, DELETE
-ON ALL TABLES IN SCHEMA public
-TO app_user;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ```
-
----
-
-## Права на будущие таблицы
 
 ```sql
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-```
-
----
-
-## Отозвать права
-
-```sql
-REVOKE DELETE ON users FROM app_user;
-```
-
----
-
-# 37. Backup и Restore
-
-## Резервная копия через pg_dump
-
-```bash
-pg_dump -U admin -d shop -f backup.sql
-```
-
----
-
-## Восстановление
-
-```bash
-psql -U admin -d shop -f backup.sql
-```
-
----
-
-## Формат custom
-
-Создание:
-
-```bash
-pg_dump -U admin -d shop -Fc -f backup.dump
-```
-
-Восстановление:
-
-```bash
-pg_restore -U admin -d shop backup.dump
-```
-
----
-
-## Бэкап всех баз
-
-```bash
-pg_dumpall -U postgres > all_backup.sql
-```
-
----
-
-# 38. Импорт и экспорт CSV
-
-## Экспорт
-
-```sql
-COPY users TO '/tmp/users.csv' WITH CSV HEADER;
-```
-
-На стороне клиента через psql:
-
-```sql
-\copy users TO 'users.csv' WITH CSV HEADER
-```
-
----
-
-## Импорт
-
-```sql
-\copy users(name, email, age) FROM 'users.csv' WITH CSV HEADER
-```
-
----
-
-# 39. Практическая схема интернет-магазина
-
-Ниже пример нормальной учебной структуры.
-
-```sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL UNIQUE,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE products (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL,
-    description text,
-    price numeric(10, 2) NOT NULL CHECK (price >= 0),
-    is_active boolean NOT NULL DEFAULT true,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE orders (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    status text NOT NULL DEFAULT 'new',
-    total numeric(10, 2) NOT NULL DEFAULT 0 CHECK (total >= 0),
-    created_at timestamptz NOT NULL DEFAULT now(),
-    CHECK (status IN ('new', 'paid', 'cancelled', 'shipped'))
-);
-
-CREATE TABLE order_items (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    order_id bigint NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id bigint NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    quantity int NOT NULL CHECK (quantity > 0),
-    price numeric(10, 2) NOT NULL CHECK (price >= 0)
+CREATE TABLE users_uuid (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    email text NOT NULL UNIQUE
 );
 ```
 
-Индексы:
+---
+
+## citext
+
+`citext` — текст без учёта регистра.
 
 ```sql
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE EXTENSION IF NOT EXISTS citext;
+```
+
+```sql
+CREATE TABLE users_ci (
+    email citext UNIQUE
+);
+```
+
+Теперь:
+
+```text
+Test@mail.com
+test@mail.com
+```
+
+считаются одинаковыми.
+
+---
+
+# 60. Практические запросы уровня Junior+
+
+## 1. Найти пользователя по email
+
+```sql
+SELECT *
+FROM users
+WHERE email = 'ivan@example.com';
 ```
 
 ---
 
-# 40. Примеры запросов для интернет-магазина
-
-## Добавить пользователя
+## 2. Получить последние 10 заказов пользователя
 
 ```sql
-INSERT INTO users (email, name)
-VALUES ('ivan@example.com', 'Ivan');
+SELECT *
+FROM orders
+WHERE user_id = 1
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+Индекс:
+
+```sql
+CREATE INDEX idx_orders_user_created
+ON orders(user_id, created_at DESC);
 ```
 
 ---
 
-## Добавить товары
+## 3. Посчитать сумму заказа
 
 ```sql
-INSERT INTO products (name, price)
-VALUES 
-    ('Laptop', 120000),
-    ('Mouse', 2500),
-    ('Keyboard', 7000);
+SELECT
+    order_id,
+    SUM(quantity * price) AS total
+FROM order_items
+WHERE order_id = 1
+GROUP BY order_id;
 ```
 
 ---
 
-## Создать заказ
+## 4. Получить заказы с суммой
 
 ```sql
-INSERT INTO orders (user_id)
-VALUES (1)
-RETURNING id;
+SELECT
+    orders.id,
+    users.name,
+    orders.created_at,
+    SUM(order_items.quantity * order_items.price) AS total
+FROM orders
+JOIN users ON users.id = orders.user_id
+JOIN order_items ON order_items.order_id = orders.id
+GROUP BY orders.id, users.name, orders.created_at
+ORDER BY orders.created_at DESC;
 ```
 
 ---
 
-## Добавить товары в заказ
+## 5. Найти товары, которые ни разу не покупали
 
 ```sql
-INSERT INTO order_items (order_id, product_id, quantity, price)
-VALUES 
-    (1, 1, 1, 120000),
-    (1, 2, 2, 2500);
+SELECT p.*
+FROM products p
+LEFT JOIN order_items oi ON oi.product_id = p.id
+WHERE oi.id IS NULL;
 ```
 
 ---
 
-## Пересчитать сумму заказа
+## 6. Топ-5 товаров по продажам
 
 ```sql
-UPDATE orders
-SET total = (
-    SELECT SUM(quantity * price)
-    FROM order_items
-    WHERE order_id = 1
-)
+SELECT
+    p.id,
+    p.title,
+    SUM(oi.quantity) AS total_sold
+FROM products p
+JOIN order_items oi ON oi.product_id = p.id
+GROUP BY p.id, p.title
+ORDER BY total_sold DESC
+LIMIT 5;
+```
+
+---
+
+## 7. Выручка по дням
+
+```sql
+SELECT
+    date_trunc('day', o.created_at) AS day,
+    SUM(oi.quantity * oi.price) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.id
+GROUP BY day
+ORDER BY day;
+```
+
+---
+
+## 8. Пользователи без заказов
+
+```sql
+SELECT u.*
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE o.id IS NULL;
+```
+
+---
+
+## 9. Последний заказ каждого пользователя
+
+```sql
+SELECT DISTINCT ON (user_id)
+    id,
+    user_id,
+    status,
+    created_at
+FROM orders
+ORDER BY user_id, created_at DESC;
+```
+
+---
+
+## 10. Количество заказов по статусам
+
+```sql
+SELECT
+    status,
+    COUNT(*) AS count
+FROM orders
+GROUP BY status
+ORDER BY count DESC;
+```
+
+---
+
+# 61. Типичные ошибки новичков
+
+## Ошибка 1: UPDATE без WHERE
+
+Опасно:
+
+```sql
+UPDATE users
+SET is_active = false;
+```
+
+Так ты изменишь всех пользователей.
+
+Правильно:
+
+```sql
+UPDATE users
+SET is_active = false
 WHERE id = 1;
 ```
 
 ---
 
-## Получить заказы пользователя
+## Ошибка 2: DELETE без WHERE
 
-```sql
-SELECT 
-    o.id,
-    o.status,
-    o.total,
-    o.created_at
-FROM orders o
-WHERE o.user_id = 1
-ORDER BY o.created_at DESC;
-```
-
----
-
-## Получить заказ с товарами
-
-```sql
-SELECT 
-    o.id AS order_id,
-    o.status,
-    u.name AS user_name,
-    p.name AS product_name,
-    oi.quantity,
-    oi.price,
-    oi.quantity * oi.price AS item_total
-FROM orders o
-JOIN users u ON u.id = o.user_id
-JOIN order_items oi ON oi.order_id = o.id
-JOIN products p ON p.id = oi.product_id
-WHERE o.id = 1;
-```
-
----
-
-## Топ пользователей по сумме заказов
-
-```sql
-SELECT 
-    u.id,
-    u.name,
-    SUM(o.total) AS total_spent
-FROM users u
-JOIN orders o ON o.user_id = u.id
-WHERE o.status = 'paid'
-GROUP BY u.id, u.name
-ORDER BY total_spent DESC
-LIMIT 10;
-```
-
----
-
-# 41. Миграции
-
-В реальных проектах структуру БД не меняют вручную хаотично.
-
-Используют миграции.
-
-Миграция — это файл с изменением схемы.
-
-Пример:
-
-```sql
--- 001_create_users.sql
-CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL UNIQUE,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-```
-
-Следующая миграция:
-
-```sql
--- 002_add_phone_to_users.sql
-ALTER TABLE users ADD COLUMN phone text;
-```
-
-Популярные инструменты:
-
-- Flyway;
-- Liquibase;
-- Prisma Migrate;
-- TypeORM migrations;
-- Sequelize migrations;
-- Alembic для Python;
-- goose;
-- golang-migrate.
-
----
-
-# 42. Хорошие практики проектирования
-
-## 1. Всегда добавляй PRIMARY KEY
-
-Почти каждая таблица должна иметь первичный ключ.
-
----
-
-## 2. Используй NOT NULL там, где значение обязательно
-
-Плохо:
-
-```sql
-email text
-```
-
-Лучше:
-
-```sql
-email text NOT NULL
-```
-
----
-
-## 3. Используй внешние ключи
-
-Плохо хранить `user_id`, который ни на кого не ссылается.
-
-Лучше:
-
-```sql
-user_id bigint NOT NULL REFERENCES users(id)
-```
-
----
-
-## 4. Не храни списки в одной строке
-
-Плохо:
-
-```text
-product_ids = '1,2,3,4'
-```
-
-Лучше создать отдельную таблицу связей.
-
----
-
-## 5. Для денег используй numeric
-
-Плохо:
-
-```sql
-price float
-```
-
-Лучше:
-
-```sql
-price numeric(10, 2)
-```
-
----
-
-## 6. Для времени часто используй timestamptz
-
-```sql
-created_at timestamptz NOT NULL DEFAULT now()
-```
-
----
-
-## 7. Создавай индексы осознанно
-
-Не надо индексировать все колонки подряд.
-
----
-
-## 8. Называй ограничения и индексы понятно
-
-```sql
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-```
-
----
-
-## 9. Не используй SELECT * в production-коде без необходимости
-
-Лучше:
-
-```sql
-SELECT id, name, email FROM users;
-```
-
----
-
-## 10. Проверяй тяжёлые запросы через EXPLAIN ANALYZE
-
-```sql
-EXPLAIN ANALYZE
-SELECT ...
-```
-
----
-
-# 43. Частые ошибки новичков
-
-## Ошибка 1. Забыли WHERE в UPDATE
-
-```sql
-UPDATE users SET is_active = false;
-```
-
-Это обновит всех пользователей.
-
----
-
-## Ошибка 2. Забыли WHERE в DELETE
+Опасно:
 
 ```sql
 DELETE FROM users;
 ```
 
-Это удалит всех пользователей.
+Правильно:
+
+```sql
+DELETE FROM users
+WHERE id = 1;
+```
 
 ---
 
-## Ошибка 3. Используют `=` для NULL
+## Ошибка 3: Проверка NULL через =
 
-Плохо:
+Неправильно:
 
 ```sql
 WHERE deleted_at = NULL
@@ -2427,31 +3081,7 @@ WHERE deleted_at IS NULL
 
 ---
 
-## Ошибка 4. Хранят дату строкой
-
-Плохо:
-
-```sql
-created_at text
-```
-
-Правильно:
-
-```sql
-created_at timestamptz
-```
-
----
-
-## Ошибка 5. Не создают индекс на FK
-
-```sql
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-```
-
----
-
-## Ошибка 6. Используют float для денег
+## Ошибка 4: Использовать float для денег
 
 Плохо:
 
@@ -2459,7 +3089,7 @@ CREATE INDEX idx_orders_user_id ON orders(user_id);
 price double precision
 ```
 
-Правильно:
+Лучше:
 
 ```sql
 price numeric(10, 2)
@@ -2467,189 +3097,324 @@ price numeric(10, 2)
 
 ---
 
-# 44. Что должен знать Junior+ по PostgreSQL
+## Ошибка 5: Не создавать индексы для foreign key
 
-## SQL
-
-Ты должен уверенно знать:
-
-- `SELECT`;
-- `INSERT`;
-- `UPDATE`;
-- `DELETE`;
-- `WHERE`;
-- `JOIN`;
-- `GROUP BY`;
-- `HAVING`;
-- `ORDER BY`;
-- `LIMIT`;
-- `OFFSET`;
-- подзапросы;
-- CTE;
-- агрегатные функции;
-- оконные функции на базовом уровне.
-
----
-
-## Схема БД
-
-Ты должен понимать:
-
-- таблицы;
-- типы данных;
-- первичные ключи;
-- внешние ключи;
-- уникальные ограничения;
-- `NOT NULL`;
-- `CHECK`;
-- связи один-к-одному, один-ко-многим, многие-ко-многим.
-
----
-
-## Индексы
-
-Ты должен понимать:
-
-- зачем нужны индексы;
-- когда индекс помогает;
-- когда индекс мешает;
-- что такое составной индекс;
-- что такое частичный индекс;
-- почему порядок колонок важен;
-- как смотреть план через `EXPLAIN`.
-
----
-
-## Транзакции
-
-Ты должен знать:
-
-- `BEGIN`;
-- `COMMIT`;
-- `ROLLBACK`;
-- ACID;
-- базовые уровни изоляции;
-- `SELECT FOR UPDATE`.
-
----
-
-## Администрирование
-
-На базовом уровне:
-
-- создать базу;
-- создать пользователя;
-- выдать права;
-- сделать backup;
-- восстановить backup;
-- импортировать CSV;
-- подключиться через psql.
-
----
-
-# 45. Практические задания
-
-## Задание 1
-
-Создай базу данных `library`.
-
-Таблицы:
-
-```text
-authors
-books
-readers
-loans
-```
-
-Связи:
-
-- один автор может иметь много книг;
-- один читатель может брать много книг;
-- одна выдача связана с одной книгой и одним читателем.
-
----
-
-## Задание 2
-
-Напиши запросы:
-
-1. добавить автора;
-2. добавить книгу;
-3. добавить читателя;
-4. выдать книгу читателю;
-5. вернуть книгу;
-6. найти все книги конкретного автора;
-7. найти всех читателей, у которых сейчас есть книги;
-8. найти топ-5 самых популярных книг.
-
----
-
-## Задание 3
-
-Добавь ограничения:
-
-- email читателя должен быть уникальным;
-- дата возврата может быть `NULL`;
-- название книги не может быть пустым;
-- год публикации должен быть больше 0.
-
----
-
-## Задание 4
-
-Добавь индексы:
-
-- на `books.author_id`;
-- на `loans.reader_id`;
-- на `loans.book_id`;
-- на `readers.email`.
-
----
-
-## Задание 5
-
-Проверь запросы через:
+Часто полезно индексировать внешние ключи:
 
 ```sql
-EXPLAIN ANALYZE
+CREATE INDEX idx_orders_user_id
+ON orders(user_id);
 ```
 
 ---
 
-# 46. Мини-шпаргалка SQL
+## Ошибка 6: Хранить всё в одной таблице
+
+Плохо:
+
+```text
+orders_with_all_data
+```
+
+Лучше разделять:
+
+```text
+users
+orders
+products
+order_items
+```
+
+---
+
+# 62. Что должен знать уверенный Junior+ по PostgreSQL
+
+Ты должен уметь:
+
+1. Создавать базы данных и таблицы.
+2. Понимать типы данных.
+3. Использовать `SELECT`, `INSERT`, `UPDATE`, `DELETE`.
+4. Писать `JOIN`.
+5. Использовать `GROUP BY`, `HAVING`, агрегатные функции.
+6. Понимать `NULL`.
+7. Создавать `PRIMARY KEY`, `FOREIGN KEY`, `UNIQUE`, `CHECK`.
+8. Понимать связи один-ко-многим и многие-ко-многим.
+9. Читать простые планы `EXPLAIN`.
+10. Создавать индексы.
+11. Понимать транзакции.
+12. Использовать `BEGIN`, `COMMIT`, `ROLLBACK`.
+13. Понимать базовую конкуренцию и `FOR UPDATE`.
+14. Делать простые backup/restore.
+15. Работать с `jsonb`.
+16. Писать CTE.
+17. Использовать оконные функции.
+18. Понимать миграции.
+19. Работать с ролями и правами.
+20. Проектировать нормальную схему БД.
+
+---
+
+# 63. Мини-проект для практики
+
+Создай базу данных для интернет-магазина.
+
+## Нужно реализовать таблицы
+
+- `users`
+- `products`
+- `orders`
+- `order_items`
+- `payments`
+- `categories`
+- `product_categories`
+
+---
+
+## Пример категорий
+
+```sql
+CREATE TABLE categories (
+    id SERIAL PRIMARY KEY,
+    title text NOT NULL UNIQUE
+);
+```
+
+---
+
+## Связь товаров и категорий
+
+```sql
+CREATE TABLE product_categories (
+    product_id integer NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    category_id integer NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    PRIMARY KEY (product_id, category_id)
+);
+```
+
+Это связь многие-ко-многим:
+
+- товар может быть в нескольких категориях;
+- категория может содержать много товаров.
+
+---
+
+## Платежи
+
+```sql
+CREATE TABLE payments (
+    id SERIAL PRIMARY KEY,
+    order_id integer NOT NULL REFERENCES orders(id),
+    amount numeric(10, 2) NOT NULL CHECK (amount >= 0),
+    status text NOT NULL CHECK (status IN ('pending', 'paid', 'failed', 'refunded')),
+    created_at timestamptz DEFAULT now()
+);
+```
+
+---
+
+# 64. Практические задания
+
+## Простые
+
+1. Добавь 5 пользователей.
+2. Добавь 10 товаров.
+3. Создай 3 заказа.
+4. Добавь товары в заказы.
+5. Получи всех пользователей.
+6. Получи товары дороже 1000.
+7. Найди пользователя по email.
+
+---
+
+## Средние
+
+1. Получи все заказы пользователя.
+2. Посчитай сумму каждого заказа.
+3. Получи топ-3 самых дорогих товара.
+4. Найди пользователей без заказов.
+5. Найди товары, которых нет на складе.
+
+---
+
+## Junior+
+
+1. Получи выручку по дням.
+2. Получи топ-5 товаров по продажам.
+3. Получи последний заказ каждого пользователя.
+4. Реализуй транзакцию оформления заказа.
+5. Добавь индексы и проверь через `EXPLAIN ANALYZE`.
+6. Сделай backup и restore.
+7. Добавь JSONB-таблицу событий.
+8. Сделай view для статистики пользователей.
+
+---
+
+# 65. Пример транзакции оформления заказа
+
+Допустим, пользователь покупает товар.
+
+```sql
+BEGIN;
+
+-- 1. Проверяем и блокируем товар
+SELECT *
+FROM products
+WHERE id = 1
+FOR UPDATE;
+
+-- 2. Уменьшаем остаток, если товара хватает
+UPDATE products
+SET stock = stock - 2
+WHERE id = 1 AND stock >= 2;
+
+-- 3. Создаём заказ
+INSERT INTO orders (user_id, status)
+VALUES (1, 'new')
+RETURNING id;
+
+-- допустим вернулся order_id = 10
+
+-- 4. Добавляем товар в заказ
+INSERT INTO order_items (order_id, product_id, quantity, price)
+VALUES (10, 1, 2, 999.99);
+
+COMMIT;
+```
+
+В реальном приложении нужно проверить, что `UPDATE products` реально обновил строку.
+
+---
+
+# 66. Хорошие привычки
+
+## Всегда используй WHERE в UPDATE/DELETE
+
+Перед `UPDATE` можно сначала сделать `SELECT`:
+
+```sql
+SELECT *
+FROM users
+WHERE id = 1;
+```
+
+Потом:
+
+```sql
+UPDATE users
+SET name = 'New Name'
+WHERE id = 1;
+```
+
+---
+
+## Используй транзакции для связанных операций
+
+Если операция состоит из нескольких шагов — используй транзакцию.
+
+---
+
+## Не храни деньги во float
+
+Используй:
+
+```sql
+numeric(10, 2)
+```
+
+---
+
+## Индексируй частые фильтры
+
+Если часто используешь:
+
+```sql
+WHERE user_id = ?
+```
+
+создай индекс:
+
+```sql
+CREATE INDEX idx_orders_user_id
+ON orders(user_id);
+```
+
+---
+
+## Не создавай индексы на всё подряд
+
+Индексы ускоряют чтение, но замедляют вставку и обновление.
+
+Каждый индекс нужно поддерживать.
+
+---
+
+## Используй понятные имена
+
+Хорошо:
+
+```text
+users
+orders
+order_items
+created_at
+updated_at
+```
+
+Плохо:
+
+```text
+tbl1
+data2
+usr_nm
+```
+
+---
+
+# 67. Краткая шпаргалка SQL
 
 ```sql
 -- создать таблицу
 CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email text NOT NULL UNIQUE,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
+    id SERIAL PRIMARY KEY,
+    email text NOT NULL UNIQUE
 );
 
--- добавить данные
-INSERT INTO users (email, name)
-VALUES ('test@example.com', 'Test');
+-- добавить строку
+INSERT INTO users (email)
+VALUES ('test@example.com');
 
 -- получить данные
-SELECT id, email, name
+SELECT *
+FROM users;
+
+-- фильтрация
+SELECT *
 FROM users
 WHERE email = 'test@example.com';
 
--- обновить данные
+-- обновить
 UPDATE users
-SET name = 'New Name'
+SET email = 'new@example.com'
 WHERE id = 1;
 
--- удалить данные
+-- удалить
 DELETE FROM users
 WHERE id = 1;
 
+-- сортировка
+SELECT *
+FROM users
+ORDER BY id DESC;
+
+-- лимит
+SELECT *
+FROM users
+LIMIT 10;
+
 -- join
-SELECT u.name, o.total
-FROM users u
-JOIN orders o ON o.user_id = u.id;
+SELECT *
+FROM orders
+JOIN users ON users.id = orders.user_id;
 
 -- группировка
 SELECT user_id, COUNT(*)
@@ -2658,54 +3423,50 @@ GROUP BY user_id;
 
 -- транзакция
 BEGIN;
-UPDATE accounts SET balance = balance - 100 WHERE id = 1;
-UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+UPDATE products SET stock = stock - 1 WHERE id = 1;
 COMMIT;
 
 -- индекс
 CREATE INDEX idx_users_email ON users(email);
-
--- план запроса
-EXPLAIN ANALYZE
-SELECT * FROM users WHERE email = 'test@example.com';
 ```
 
 ---
 
-# 47. Рекомендуемый порядок изучения
+# 68. Как учиться дальше
 
-1. Установить PostgreSQL.
-2. Научиться подключаться через `psql` или DBeaver.
-3. Выучить `SELECT`, `INSERT`, `UPDATE`, `DELETE`.
-4. Понять типы данных.
-5. Понять `PRIMARY KEY`, `FOREIGN KEY`, `UNIQUE`, `NOT NULL`.
-6. Научиться делать `JOIN`.
-7. Освоить `GROUP BY`, агрегаты, `HAVING`.
-8. Изучить подзапросы и CTE.
-9. Понять нормализацию и связи таблиц.
-10. Изучить индексы.
-11. Научиться читать `EXPLAIN`.
-12. Освоить транзакции.
-13. Научиться делать backup/restore.
-14. Сделать 2–3 учебных проекта с БД.
+Лучший путь:
+
+1. Выучи базовые SQL-команды.
+2. Много практикуй `SELECT`.
+3. Разбери `JOIN`.
+4. Разбери `GROUP BY`.
+5. Научись проектировать таблицы.
+6. Изучи индексы.
+7. Изучи транзакции.
+8. Начни читать `EXPLAIN`.
+9. Сделай мини-проект.
+10. Подключи PostgreSQL к backend-приложению.
 
 ---
 
-# 48. Итог
+# 69. Итог
 
-Чтобы быть уверенным Junior+ по PostgreSQL, тебе нужно уметь:
+PostgreSQL — мощная реляционная база данных.
 
-- создавать нормальные таблицы;
-- правильно выбирать типы данных;
-- писать CRUD-запросы;
-- писать JOIN-запросы;
-- агрегировать данные;
-- проектировать связи;
-- использовать ограничения;
-- понимать индексы;
-- читать простые планы выполнения;
-- работать с транзакциями;
-- делать backup и restore;
-- не ломать данные опасными запросами.
+Для уровня Junior+ тебе особенно важно уверенно знать:
 
-Если ты хорошо освоишь всё из этого конспекта и выполнишь практические задания, у тебя будет крепкая база PostgreSQL для работы backend-разработчиком, аналитиком или junior database developer.
+- таблицы;
+- типы данных;
+- ограничения;
+- связи;
+- CRUD;
+- JOIN;
+- GROUP BY;
+- индексы;
+- транзакции;
+- миграции;
+- backup/restore;
+- основы оптимизации;
+- нормализацию.
+
+Если ты хорошо отработаешь примеры из этой документации и сделаешь мини-проект интернет-магазина, у тебя будет хорошая база для Junior/Juinor+ уровня.

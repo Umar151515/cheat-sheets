@@ -1,54 +1,55 @@
-# SQLAlchemy 2 + PostgreSQL: подробная практическая документация с нуля до уровня junior+
+Ниже — **практическая документация/учебник по SQLAlchemy 2 + Alembic + PostgreSQL** с нуля до уровня уверенного junior+.
 
-Ниже — большой практический конспект по **современному SQLAlchemy 2.x** на примере **PostgreSQL**.
+Будем использовать **строго современный SQLAlchemy 2**:
 
-Мы будем использовать **только новый стиль SQLAlchemy 2**:
-
-- `select(...)`, а не старый `session.query(...)`
-- `Mapped[...]`, `mapped_column(...)`
 - `DeclarativeBase`
-- `Session.execute(...)`, `Session.scalars(...)`, `Session.scalar(...)`
-- явные транзакции через `with session.begin():`
-- PostgreSQL через современный драйвер `psycopg`
+- `Mapped[...]`
+- `mapped_column(...)`
+- `select(...)`
+- `Session.execute(...)`
+- `Session.scalars(...)`
+- `relationship(...)`
+- Alembic migrations
+
+Без старого стиля:
+
+```python
+session.query(User).filter(...)
+```
+
+В SQLAlchemy 2 так писать уже не нужно.
 
 ---
 
 # 1. Что такое SQLAlchemy
 
-**SQLAlchemy** — это библиотека для работы с базами данных из Python.
+**SQLAlchemy** — это библиотека для работы с базами данных в Python.
 
 Она состоит из двух больших частей:
 
-## 1.1. SQLAlchemy Core
+## 1.1 SQLAlchemy Core
 
-Это низкоуровневый конструктор SQL-запросов.
+Это низкоуровневый слой.
 
-Например:
+Он позволяет писать SQL-запросы через Python-объекты:
 
 ```python
 from sqlalchemy import select
 
-stmt = select(users_table).where(users_table.c.id == 1)
+stmt = select(users_table).where(users_table.c.email == "test@example.com")
 ```
 
-Core помогает писать SQL на Python, но без привязки к ORM-моделям.
+Core ближе к чистому SQL.
 
-## 1.2. SQLAlchemy ORM
+## 1.2 SQLAlchemy ORM
 
-ORM расшифровывается как **Object-Relational Mapping**.
+ORM — Object Relational Mapper.
 
-ORM позволяет работать с таблицами как с Python-классами.
+Он позволяет работать с таблицами как с Python-классами.
 
-Например, есть таблица `users`:
+Например, есть таблица `users`.
 
-```sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email TEXT NOT NULL
-);
-```
-
-В SQLAlchemy ORM ты описываешь её как класс:
+В ORM мы описываем её как класс:
 
 ```python
 class User(Base):
@@ -58,7 +59,7 @@ class User(Base):
     email: Mapped[str]
 ```
 
-И потом работаешь с обычными объектами:
+И потом можем создавать пользователя так:
 
 ```python
 user = User(email="test@example.com")
@@ -66,7 +67,7 @@ session.add(user)
 session.commit()
 ```
 
-SQLAlchemy сам создаст SQL:
+ORM сам преобразует Python-объект в SQL:
 
 ```sql
 INSERT INTO users (email) VALUES ('test@example.com');
@@ -74,66 +75,90 @@ INSERT INTO users (email) VALUES ('test@example.com');
 
 ---
 
-# 2. Что нужно знать перед SQLAlchemy
+# 2. Что такое Alembic
 
-Желательно понимать базовые вещи:
+**Alembic** — это инструмент миграций для SQLAlchemy.
 
-## 2.1. Таблица
-
-Таблица — это структура данных в БД.
-
-Например, таблица `users`:
-
-| id | email              | name  |
-|----|--------------------|-------|
-| 1  | ivan@example.com   | Ivan  |
-| 2  | anna@example.com   | Anna  |
-
-## 2.2. Строка
-
-Одна запись в таблице.
+Миграции нужны, чтобы управлять изменениями структуры базы данных.
 
 Например:
 
-```text
-1 | ivan@example.com | Ivan
-```
+- создать таблицу `users`
+- добавить колонку `age`
+- удалить колонку `name`
+- создать индекс
+- добавить внешний ключ
+- изменить тип данных
 
-## 2.3. Колонка
-
-Поле таблицы:
-
-- `id`
-- `email`
-- `name`
-
-## 2.4. Первичный ключ
-
-**Primary key** — уникальный идентификатор строки.
-
-Обычно это `id`.
+Без Alembic тебе пришлось бы вручную писать SQL:
 
 ```sql
-id SERIAL PRIMARY KEY
+ALTER TABLE users ADD COLUMN age INTEGER;
 ```
 
-## 2.5. Внешний ключ
+С Alembic это делается через миграции:
 
-**Foreign key** — ссылка на другую таблицу.
+```python
+def upgrade():
+    op.add_column("users", sa.Column("age", sa.Integer(), nullable=True))
 
-Например:
 
-```sql
-posts.user_id -> users.id
+def downgrade():
+    op.drop_column("users", "age")
 ```
-
-То есть пост принадлежит пользователю.
 
 ---
 
-# 3. Установка PostgreSQL через Docker
+# 3. Подготовка проекта
 
-Если PostgreSQL ещё нет, проще всего поднять его через Docker.
+Создадим проект.
+
+```bash
+mkdir sqlalchemy_alembic_project
+cd sqlalchemy_alembic_project
+```
+
+Создадим виртуальное окружение:
+
+```bash
+python -m venv .venv
+```
+
+Активируем.
+
+Linux / macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Установим зависимости:
+
+```bash
+pip install sqlalchemy alembic psycopg[binary] python-dotenv
+```
+
+Проверить версии:
+
+```bash
+python -c "import sqlalchemy; print(sqlalchemy.__version__)"
+```
+
+Желательно SQLAlchemy 2.x:
+
+```text
+2.0.x
+```
+
+---
+
+# 4. Поднимаем PostgreSQL через Docker
 
 Создай файл `docker-compose.yml`:
 
@@ -143,7 +168,7 @@ services:
     image: postgres:16
     container_name: sqlalchemy_postgres
     environment:
-      POSTGRES_USER: app
+      POSTGRES_USER: app_user
       POSTGRES_PASSWORD: app_password
       POSTGRES_DB: app_db
     ports:
@@ -167,50 +192,16 @@ docker compose up -d
 docker ps
 ```
 
----
-
-# 4. Создание Python-проекта
-
-Создадим проект:
+Подключиться внутрь PostgreSQL:
 
 ```bash
-mkdir sqlalchemy2_tutorial
-cd sqlalchemy2_tutorial
+docker exec -it sqlalchemy_postgres psql -U app_user -d app_db
 ```
 
-Создадим виртуальное окружение:
+Выйти:
 
-```bash
-python -m venv .venv
-```
-
-Активируем:
-
-## Linux/macOS
-
-```bash
-source .venv/bin/activate
-```
-
-## Windows PowerShell
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Установим зависимости:
-
-```bash
-pip install "sqlalchemy>=2.0" psycopg[binary] python-dotenv alembic
-```
-
-Что мы установили:
-
-```text
-sqlalchemy      — сама библиотека SQLAlchemy
-psycopg         — драйвер PostgreSQL
-python-dotenv   — чтобы читать настройки из .env
-alembic         — миграции базы данных
+```sql
+\q
 ```
 
 ---
@@ -220,7 +211,7 @@ alembic         — миграции базы данных
 Сделаем такую структуру:
 
 ```text
-sqlalchemy2_tutorial/
+sqlalchemy_alembic_project/
 │
 ├── app/
 │   ├── __init__.py
@@ -229,123 +220,128 @@ sqlalchemy2_tutorial/
 │   ├── models.py
 │   └── main.py
 │
-├── .env
-└── docker-compose.yml
+├── alembic/
+│   ├── versions/
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+│
+├── alembic.ini
+├── docker-compose.yml
+└── .env
 ```
+
+Создадим папку `app`:
+
+```bash
+mkdir app
+touch app/__init__.py
+```
+
+На Windows можно создать файлы вручную.
 
 ---
 
 # 6. Настройки подключения
 
-Создай файл `.env`:
+Создадим файл `.env`:
 
 ```env
-DATABASE_URL=postgresql+psycopg://app:app_password@localhost:5432/app_db
+DATABASE_URL=postgresql+psycopg://app_user:app_password@localhost:5432/app_db
 ```
 
-Разберём строку подключения:
+Разберём строку:
 
 ```text
-postgresql+psycopg://app:app_password@localhost:5432/app_db
+postgresql+psycopg://app_user:app_password@localhost:5432/app_db
 ```
 
-Это значит:
+Где:
 
-```text
-postgresql       — тип базы данных
-psycopg          — драйвер
-app              — пользователь
-app_password     — пароль
-localhost        — адрес сервера
-5432             — порт PostgreSQL
-app_db           — имя базы данных
-```
+| Часть | Значение |
+|---|---|
+| `postgresql` | тип базы данных |
+| `psycopg` | драйвер подключения |
+| `app_user` | пользователь |
+| `app_password` | пароль |
+| `localhost` | хост |
+| `5432` | порт PostgreSQL |
+| `app_db` | имя базы данных |
 
----
-
-# 7. Конфигурация приложения
-
-Файл `app/config.py`:
+Теперь `app/config.py`:
 
 ```python
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+```
+
+Но мы не устанавливали `pydantic-settings`. Чтобы не усложнять, сделаем проще через `python-dotenv`.
+
+`app/config.py`:
+
+```python
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
 
-class Settings:
-    DATABASE_URL: str = os.environ["DATABASE_URL"]
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-
-settings = Settings()
+if DATABASE_URL is None:
+    raise RuntimeError("DATABASE_URL is not set")
 ```
-
-Здесь:
-
-```python
-load_dotenv()
-```
-
-загружает переменные из файла `.env`.
-
-```python
-os.environ["DATABASE_URL"]
-```
-
-читает строку подключения к базе.
 
 ---
 
-# 8. Engine: подключение к базе
+# 7. Подключение SQLAlchemy
 
-Файл `app/database.py`:
+Создадим `app/database.py`.
 
 ```python
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from app.config import settings
+from app.config import DATABASE_URL
 
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    DATABASE_URL,
     echo=True,
 )
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+)
+
+
+class Base(DeclarativeBase):
+    pass
 ```
 
-Разберём:
-
-```python
-create_engine(...)
-```
-
-создаёт объект `Engine`.
-
-## Что такое Engine?
-
-`Engine` — это главный объект SQLAlchemy для подключения к базе.
-
-Он:
-
-- хранит настройки подключения;
-- управляет пулом соединений;
-- отправляет SQL-запросы в базу;
-- получает результаты.
-
-Важно: `create_engine()` **не открывает соединение сразу**. Соединение реально откроется, когда ты сделаешь запрос.
+Разберём подробно.
 
 ---
 
-## 8.1. Параметр `echo=True`
+## 7.1 `create_engine`
 
 ```python
-echo=True
+engine = create_engine(DATABASE_URL, echo=True)
 ```
 
-означает: SQLAlchemy будет печатать SQL-запросы в консоль.
+`Engine` — это главный объект SQLAlchemy Core, который знает:
 
-Это очень полезно при обучении.
+- куда подключаться
+- через какой драйвер
+- как управлять пулом соединений
+- как выполнять SQL
+
+`echo=True` означает:
+
+> SQLAlchemy будет печатать SQL-запросы в консоль.
+
+Это очень полезно для обучения.
 
 В продакшене обычно ставят:
 
@@ -355,30 +351,38 @@ echo=False
 
 ---
 
-# 9. Базовый класс моделей
-
-В `app/database.py` добавим:
+## 7.2 `Session`
 
 ```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+SessionLocal = sessionmaker(bind=engine)
+```
 
-from app.config import settings
+`Session` — это объект ORM.
 
+Через него мы:
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=True,
-)
+- добавляем объекты
+- удаляем объекты
+- выполняем запросы
+- фиксируем транзакции
+- откатываем транзакции
 
+Важно:
 
+> `Session` — это не просто соединение с БД. Это рабочая область ORM.
+
+Она хранит объекты, следит за их изменениями и решает, какие SQL-запросы нужно выполнить.
+
+---
+
+## 7.3 `Base`
+
+```python
 class Base(DeclarativeBase):
     pass
 ```
 
-## Что такое `Base`
-
-`Base` — это родительский класс для всех ORM-моделей.
+`Base` — базовый класс для всех ORM-моделей.
 
 Все модели будут наследоваться от него:
 
@@ -387,96 +391,24 @@ class User(Base):
     ...
 ```
 
-SQLAlchemy через `Base` узнаёт:
-
-- какие есть модели;
-- какие таблицы нужно создать;
-- какие поля есть у таблиц;
-- какие связи между таблицами.
-
----
-
-# 10. Session: единица работы с базой
-
-В `app/database.py` добавим фабрику сессий:
+SQLAlchemy собирает информацию обо всех таблицах в:
 
 ```python
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    expire_on_commit=False,
-)
+Base.metadata
 ```
 
-Итоговый `app/database.py`:
-
-```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
-from app.config import settings
-
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=True,
-)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    expire_on_commit=False,
-)
-```
+Именно `Base.metadata` потом понадобится Alembic.
 
 ---
 
-## Что такое Session?
+# 8. Первая модель
 
-`Session` — это объект, через который ты работаешь с ORM.
-
-Через сессию ты:
-
-- добавляешь объекты;
-- изменяешь объекты;
-- удаляешь объекты;
-- делаешь запросы;
-- открываешь и завершаешь транзакции.
-
-Пример:
+Создадим `app/models.py`.
 
 ```python
-with SessionLocal() as session:
-    user = User(email="ivan@example.com")
-    session.add(user)
-    session.commit()
-```
+from datetime import datetime
 
----
-
-## Важно: Session — это не соединение напрямую
-
-`Session` — это более высокий уровень.
-
-Она:
-
-- берёт соединение из `Engine`, когда нужно;
-- отслеживает изменения объектов;
-- управляет транзакциями;
-- синхронизирует Python-объекты с базой.
-
----
-
-# 11. Первая модель User
-
-Файл `app/models.py`:
-
-```python
+from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -486,15 +418,59 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(unique=True, nullable=False)
-    name: Mapped[str | None] = mapped_column(nullable=True)
-```
 
-Разберём подробно.
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    username: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False,
+    )
+
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        default=True,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+```
 
 ---
 
-## 11.1. `__tablename__`
+# 9. Разбор модели
+
+## 9.1 Класс модели
+
+```python
+class User(Base):
+```
+
+Мы создаём Python-класс, который соответствует таблице в БД.
+
+---
+
+## 9.2 Имя таблицы
 
 ```python
 __tablename__ = "users"
@@ -502,189 +478,572 @@ __tablename__ = "users"
 
 Это имя таблицы в PostgreSQL.
 
-То есть SQLAlchemy понимает:
-
-```python
-class User(Base)
-```
-
-соответствует таблице:
-
-```sql
-users
-```
+SQLAlchemy будет считать, что класс `User` связан с таблицей `users`.
 
 ---
 
-## 11.2. `Mapped[...]`
+## 9.3 Тип `Mapped`
 
 ```python
 id: Mapped[int]
 ```
 
-`Mapped` — это специальный тип SQLAlchemy 2.
+В SQLAlchemy 2 современный стиль такой:
 
-Он говорит:
+```python
+field_name: Mapped[python_type] = mapped_column(...)
+```
 
-> Это поле является колонкой ORM-модели.
+`Mapped[int]` говорит:
 
-Новый стиль SQLAlchemy 2 использует типизацию.
+> это ORM-поле, которое будет связано с колонкой таблицы, и в Python это будет `int`.
 
 ---
 
-## 11.3. `mapped_column(...)`
+## 9.4 `mapped_column`
 
 ```python
 id: Mapped[int] = mapped_column(primary_key=True)
 ```
 
-`mapped_column()` описывает колонку таблицы.
+`mapped_column` описывает колонку таблицы.
 
 Например:
 
 ```python
-email: Mapped[str] = mapped_column(unique=True, nullable=False)
+email: Mapped[str] = mapped_column(String(255), nullable=False)
 ```
 
-означает:
+Это значит:
 
-- колонка `email`;
-- тип Python — `str`;
-- значение обязательно;
-- значение должно быть уникальным.
+```sql
+email VARCHAR(255) NOT NULL
+```
 
 ---
 
-## 11.4. `primary_key=True`
+## 9.5 Primary Key
 
 ```python
 id: Mapped[int] = mapped_column(primary_key=True)
 ```
 
-Это первичный ключ.
+Primary Key — это уникальный идентификатор строки.
 
-В PostgreSQL для `int primary_key=True` SQLAlchemy обычно сделает автоинкремент.
+PostgreSQL сам будет генерировать значения для `id`.
 
----
+Обычно это:
 
-## 11.5. `unique=True`
-
-```python
-email: Mapped[str] = mapped_column(unique=True)
+```sql
+id SERIAL PRIMARY KEY
 ```
 
-Значит в таблице нельзя иметь двух пользователей с одинаковым email.
+или в новых версиях:
+
+```sql
+id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY
+```
+
+SQLAlchemy сам создаст подходящую конструкцию.
 
 ---
 
-## 11.6. `nullable=False`
+## 9.6 `nullable`
+
+```python
+nullable=False
+```
+
+Означает, что колонка не может быть `NULL`.
+
+Пример:
 
 ```python
 email: Mapped[str] = mapped_column(nullable=False)
 ```
 
-Значит колонка не может быть `NULL`.
+В SQL:
+
+```sql
+email VARCHAR NOT NULL
+```
+
+Если попытаться вставить строку без email, PostgreSQL выдаст ошибку.
 
 ---
 
-## 11.7. `nullable=True`
+## 9.7 `unique`
 
 ```python
-name: Mapped[str | None] = mapped_column(nullable=True)
+unique=True
 ```
 
-Значит имя может отсутствовать.
+Означает, что значение должно быть уникальным.
 
-В Python это отражается как:
+Например:
 
 ```python
-str | None
+email: Mapped[str] = mapped_column(unique=True)
 ```
 
-То есть значение может быть строкой или `None`.
+Нельзя создать двух пользователей с одинаковым email.
 
 ---
 
-# 12. Создание таблиц без Alembic
-
-На начальном этапе можно создать таблицы напрямую.
-
-Файл `app/main.py`:
+## 9.8 `index`
 
 ```python
-from app.database import Base, engine
+index=True
+```
+
+Создаёт индекс.
+
+Индекс ускоряет поиск.
+
+Например, если часто ищем пользователя по email:
+
+```python
+select(User).where(User.email == "test@example.com")
+```
+
+то индекс на `email` полезен.
+
+Но индексы не бесплатные:
+
+- ускоряют чтение
+- замедляют запись
+- занимают место
+
+---
+
+## 9.9 `server_default`
+
+```python
+server_default=func.now()
+```
+
+Это значение по умолчанию на стороне базы данных.
+
+То есть PostgreSQL сам подставит текущее время.
+
+Важно различать:
+
+```python
+default=datetime.utcnow
+```
+
+и
+
+```python
+server_default=func.now()
+```
+
+### `default`
+
+Работает на стороне Python.
+
+```python
+created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+```
+
+### `server_default`
+
+Работает на стороне БД.
+
+```python
+created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+```
+
+Для дат создания обычно лучше `server_default`.
+
+---
+
+# 10. Создание таблиц без Alembic
+
+Для обучения можно создать таблицы напрямую:
+
+```python
+Base.metadata.create_all(engine)
+```
+
+Но в реальных проектах с Alembic так обычно не делают.
+
+Почему?
+
+Потому что `create_all`:
+
+- создаёт таблицы
+- но плохо управляет изменениями
+- не хранит историю миграций
+- не умеет нормально обновлять уже существующие таблицы
+
+Поэтому дальше будем использовать Alembic.
+
+---
+
+# 11. Инициализация Alembic
+
+В корне проекта выполним:
+
+```bash
+alembic init alembic
+```
+
+Появится:
+
+```text
+alembic/
+alembic.ini
+```
+
+---
+
+# 12. Настройка `alembic.ini`
+
+Открой `alembic.ini`.
+
+Найди строку:
+
+```ini
+sqlalchemy.url = driver://user:pass@localhost/dbname
+```
+
+Можно заменить напрямую:
+
+```ini
+sqlalchemy.url = postgresql+psycopg://app_user:app_password@localhost:5432/app_db
+```
+
+Но лучше не хранить пароль в `alembic.ini`.
+
+Мы настроим Alembic так, чтобы он брал URL из `.env`.
+
+---
+
+# 13. Настройка `alembic/env.py`
+
+Открой `alembic/env.py`.
+
+Там будет много стандартного кода.
+
+Нужно сделать так, чтобы Alembic знал про наши модели.
+
+Пример полноценного `alembic/env.py`:
+
+```python
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+
+from alembic import context
+
+from dotenv import load_dotenv
+import os
+
+from app.database import Base
+from app import models  # важно: импортируем модели, чтобы они попали в metadata
+
+
+load_dotenv()
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL is None:
+    raise RuntimeError("DATABASE_URL is not set")
+
+
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
+
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+```
+
+---
+
+# 14. Очень важный момент про импорт моделей
+
+В `env.py` есть строка:
+
+```python
 from app import models
+```
+
+Она нужна обязательно.
+
+Почему?
+
+Alembic смотрит на:
+
+```python
+Base.metadata
+```
+
+Но если модель `User` не была импортирована, Python о ней не знает.
+
+Значит, она не попадёт в `Base.metadata`.
+
+Поэтому Alembic не увидит таблицу.
+
+---
+
+# 15. Первая миграция
+
+Создаём миграцию:
+
+```bash
+alembic revision --autogenerate -m "create users table"
+```
+
+Alembic сравнит:
+
+- текущее состояние базы
+- состояние моделей SQLAlchemy
+
+И создаст файл в:
+
+```text
+alembic/versions/
+```
+
+Например:
+
+```text
+a1b2c3d4_create_users_table.py
+```
+
+Открой файл. Там будет примерно:
+
+```python
+"""create users table
+
+Revision ID: a1b2c3d4
+Revises: 
+Create Date: ...
+
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
 
 
-def main() -> None:
-    Base.metadata.create_all(bind=engine)
+revision: str = "a1b2c3d4"
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=False),
+        sa.Column("username", sa.String(length=100), nullable=False),
+        sa.Column("hashed_password", sa.String(length=255), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("email"),
+        sa.UniqueConstraint("username"),
+    )
+
+    op.create_index(
+        op.f("ix_users_email"),
+        "users",
+        ["email"],
+        unique=False,
+    )
+
+
+def downgrade() -> None:
+    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_table("users")
+```
+
+---
+
+# 16. Применение миграции
+
+```bash
+alembic upgrade head
+```
+
+Это применит все миграции до последней версии.
+
+Проверим в PostgreSQL:
+
+```bash
+docker exec -it sqlalchemy_postgres psql -U app_user -d app_db
+```
+
+Внутри:
+
+```sql
+\dt
+```
+
+Должны увидеть:
+
+```text
+alembic_version
+users
+```
+
+Посмотреть структуру таблицы:
+
+```sql
+\d users
+```
+
+---
+
+# 17. Что такое `alembic_version`
+
+Alembic создаёт служебную таблицу:
+
+```text
+alembic_version
+```
+
+В ней хранится текущая версия миграции.
+
+Например:
+
+```sql
+SELECT * FROM alembic_version;
+```
+
+Результат:
+
+```text
+version_num
+------------
+a1b2c3d4
+```
+
+Это значит:
+
+> база находится на миграции `a1b2c3d4`.
+
+---
+
+# 18. Создание данных через SQLAlchemy
+
+Создадим `app/main.py`.
+
+```python
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+from app.database import SessionLocal
+from app.models import User
+
+
+def create_user(
+    email: str,
+    username: str,
+    hashed_password: str,
+) -> User:
+    with SessionLocal() as session:
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=hashed_password,
+        )
+
+        session.add(user)
+
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            raise ValueError("User with this email or username already exists")
+
+        session.refresh(user)
+
+        return user
 
 
 if __name__ == "__main__":
-    main()
+    user = create_user(
+        email="john@example.com",
+        username="john",
+        hashed_password="not_real_hash",
+    )
+
+    print(user.id)
+    print(user.email)
 ```
 
-Запусти:
+Запуск:
 
 ```bash
 python -m app.main
 ```
 
-SQLAlchemy создаст таблицу `users`.
-
 ---
 
-## Важно про `create_all`
+# 19. Разбор создания объекта
 
 ```python
-Base.metadata.create_all(bind=engine)
-```
-
-создаёт таблицы, если их ещё нет.
-
-Но `create_all()`:
-
-- не умеет нормально менять уже существующие таблицы;
-- не заменяет миграции;
-- подходит для обучения и простых тестов;
-- в реальных проектах обычно используют Alembic.
-
----
-
-# 13. Добавление пользователя
-
-Изменим `app/main.py`:
-
-```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        user = User(
-            email="ivan@example.com",
-            name="Ivan",
-        )
-
-        session.add(user)
-        session.commit()
-
-        print(user.id)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-Разберём.
-
----
-
-## 13.1. Создание объекта
-
-```python
-user = User(email="ivan@example.com", name="Ivan")
+user = User(...)
 ```
 
 Пока это просто Python-объект.
@@ -693,176 +1052,118 @@ user = User(email="ivan@example.com", name="Ivan")
 
 ---
 
-## 13.2. `session.add(user)`
+## 19.1 `session.add`
 
 ```python
 session.add(user)
 ```
 
-говорит сессии:
+Теперь объект добавлен в сессию.
 
-> Этот объект нужно сохранить в базе.
+Но SQL `INSERT` может ещё не выполниться.
 
-Но SQL-запрос ещё может не выполниться прямо в этот момент.
+Объект находится в состоянии `pending`.
 
 ---
 
-## 13.3. `session.commit()`
+## 19.2 `commit`
 
 ```python
 session.commit()
 ```
 
-фиксирует транзакцию.
+`commit` делает несколько вещей:
 
-SQLAlchemy отправляет в базу примерно такой SQL:
+1. Выполняет `flush`
+2. Отправляет SQL-запросы в БД
+3. Фиксирует транзакцию
 
-```sql
-INSERT INTO users (email, name)
-VALUES ('ivan@example.com', 'Ivan')
-RETURNING users.id;
-```
-
-После `commit()` пользователь сохранён.
-
----
-
-# 14. Транзакции
-
-## 14.1. Что такое транзакция?
-
-Транзакция — это группа операций, которая выполняется целиком или не выполняется вообще.
-
-Например:
-
-```text
-1. Создать пользователя
-2. Создать профиль пользователя
-3. Создать настройки пользователя
-```
-
-Если шаг 2 упал с ошибкой, нельзя оставлять только шаг 1.
-
-Тогда нужна транзакция:
-
-- если всё хорошо — `COMMIT`;
-- если ошибка — `ROLLBACK`.
-
----
-
-## 14.2. Рекомендуемый стиль SQLAlchemy 2
-
-Лучше писать так:
-
-```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        with session.begin():
-            user = User(email="anna@example.com", name="Anna")
-            session.add(user)
-
-        print(user.id)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-Здесь:
-
-```python
-with session.begin():
-```
-
-автоматически:
-
-- делает `commit`, если ошибок нет;
-- делает `rollback`, если произошла ошибка.
-
----
-
-## 14.3. Почему это лучше
-
-Вместо:
-
-```python
-try:
-    session.add(user)
-    session.commit()
-except:
-    session.rollback()
-    raise
-```
-
-можно писать:
-
-```python
-with session.begin():
-    session.add(user)
-```
-
-Это чище и безопаснее.
-
----
-
-# 15. Получение объекта по primary key
-
-```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        user = session.get(User, 1)
-
-        if user is None:
-            print("Пользователь не найден")
-        else:
-            print(user.email, user.name)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-## `session.get(Model, id)`
-
-Это самый простой и правильный способ получить объект по первичному ключу.
-
-```python
-user = session.get(User, 1)
-```
-
-Он ищет:
+Пример SQL:
 
 ```sql
-SELECT * FROM users WHERE id = 1;
+INSERT INTO users (email, username, hashed_password, is_active)
+VALUES (...)
+RETURNING users.id, users.created_at, users.updated_at;
 ```
 
 ---
 
-# 16. SELECT в SQLAlchemy 2
-
-В новом SQLAlchemy 2 для запросов используется `select()`.
+## 19.3 `rollback`
 
 ```python
-from sqlalchemy import select
-
-stmt = select(User)
+session.rollback()
 ```
 
-`stmt` — это объект SQL-запроса.
+Если произошла ошибка, транзакцию нужно откатить.
 
-Он ещё не выполнен.
+Например, если нарушен `unique=True`.
 
 ---
 
-## 16.1. Получить всех пользователей
+## 19.4 `refresh`
+
+```python
+session.refresh(user)
+```
+
+Обновляет объект из базы.
+
+Это нужно, чтобы получить:
+
+- `id`
+- `created_at`
+- `updated_at`
+- значения, которые поставила БД
+
+---
+
+# 20. Состояния ORM-объекта
+
+В SQLAlchemy ORM объект может быть в разных состояниях.
+
+## 20.1 Transient
+
+```python
+user = User(email="a@b.com")
+```
+
+Объект создан, но сессия о нём не знает.
+
+---
+
+## 20.2 Pending
+
+```python
+session.add(user)
+```
+
+Объект добавлен в сессию, но ещё не записан в БД.
+
+---
+
+## 20.3 Persistent
+
+```python
+session.commit()
+```
+
+Объект связан с реальной строкой в БД.
+
+---
+
+## 20.4 Detached
+
+```python
+session.close()
+```
+
+Сессия закрыта, объект больше не связан с ней.
+
+---
+
+# 21. Чтение данных
+
+## 21.1 Получить всех пользователей
 
 ```python
 from sqlalchemy import select
@@ -871,395 +1172,442 @@ from app.database import SessionLocal
 from app.models import User
 
 
-def main() -> None:
+def get_users() -> list[User]:
     with SessionLocal() as session:
         stmt = select(User)
 
         users = session.scalars(stmt).all()
 
-        for user in users:
-            print(user.id, user.email, user.name)
-
-
-if __name__ == "__main__":
-    main()
+        return list(users)
 ```
 
-Разбор:
+Современный стиль SQLAlchemy 2:
 
 ```python
 stmt = select(User)
-```
-
-создаёт SQL:
-
-```sql
-SELECT users.id, users.email, users.name
-FROM users;
-```
-
-```python
-session.scalars(stmt)
-```
-
-выполняет запрос и возвращает ORM-объекты `User`.
-
-```python
-.all()
-```
-
-возвращает список.
-
----
-
-## 16.2. `session.scalars(...)`
-
-Используется, когда ты выбираешь одну ORM-сущность или одну колонку.
-
-Например:
-
-```python
-session.scalars(select(User)).all()
-```
-
-вернёт:
-
-```python
-list[User]
-```
-
-А:
-
-```python
-session.scalars(select(User.email)).all()
-```
-
-вернёт:
-
-```python
-list[str]
+users = session.scalars(stmt).all()
 ```
 
 ---
 
-## 16.3. `session.scalar(...)`
+## 21.2 Получить пользователя по id
 
-Используется, когда нужен один результат.
-
-```python
-user = session.scalar(
-    select(User).where(User.email == "ivan@example.com")
-)
-```
-
-Если найден — вернёт `User`.
-
-Если не найден — вернёт `None`.
-
----
-
-# 17. Фильтрация WHERE
+Вариант 1:
 
 ```python
-from sqlalchemy import select
-
-stmt = select(User).where(User.email == "ivan@example.com")
-```
-
-Полный пример:
-
-```python
-from sqlalchemy import select
-
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
+def get_user_by_id(user_id: int) -> User | None:
     with SessionLocal() as session:
-        user = session.scalar(
-            select(User).where(User.email == "ivan@example.com")
-        )
+        return session.get(User, user_id)
+```
 
-        if user:
-            print(user.id, user.name)
+`session.get()` используется для поиска по primary key.
 
+Это самый простой и правильный способ получить объект по `id`.
 
-if __name__ == "__main__":
-    main()
+---
+
+## 21.3 Получить пользователя по email
+
+```python
+def get_user_by_email(email: str) -> User | None:
+    with SessionLocal() as session:
+        stmt = select(User).where(User.email == email)
+
+        return session.scalar(stmt)
+```
+
+Обрати внимание:
+
+```python
+session.scalar(stmt)
+```
+
+Возвращает:
+
+- первый объект
+- или `None`
+
+---
+
+## 21.4 Разница `scalar` и `scalars`
+
+### `scalar`
+
+```python
+result = session.scalar(select(User))
+```
+
+Возвращает одно значение или `None`.
+
+### `scalars`
+
+```python
+result = session.scalars(select(User)).all()
+```
+
+Возвращает поток ORM-объектов.
+
+Пример:
+
+```python
+users = session.scalars(select(User)).all()
 ```
 
 ---
 
-## 17.1. Несколько условий
+# 22. Фильтрация
 
 ```python
-stmt = select(User).where(
-    User.email == "ivan@example.com",
-    User.name == "Ivan",
+stmt = select(User).where(User.is_active == True)
+```
+
+Лучше для boolean:
+
+```python
+stmt = select(User).where(User.is_active.is_(True))
+```
+
+Примеры:
+
+```python
+select(User).where(User.email == "john@example.com")
+
+select(User).where(User.username != "admin")
+
+select(User).where(User.id > 10)
+
+select(User).where(User.email.like("%@gmail.com"))
+
+select(User).where(User.email.ilike("%@gmail.com"))
+```
+
+`like` — чувствителен к регистру.
+
+`ilike` — нечувствителен к регистру в PostgreSQL.
+
+---
+
+# 23. Несколько условий
+
+## 23.1 Через несколько `.where`
+
+```python
+stmt = (
+    select(User)
+    .where(User.is_active.is_(True))
+    .where(User.email.ilike("%@gmail.com"))
 )
 ```
 
-Это означает `AND`.
-
-SQL:
+Это будет SQL:
 
 ```sql
-WHERE email = 'ivan@example.com'
-  AND name = 'Ivan'
+WHERE users.is_active IS true
+  AND users.email ILIKE '%@gmail.com'
 ```
 
 ---
 
-## 17.2. `and_`
+## 23.2 Через `and_`
 
 ```python
 from sqlalchemy import and_
 
 stmt = select(User).where(
     and_(
-        User.email == "ivan@example.com",
-        User.name == "Ivan",
+        User.is_active.is_(True),
+        User.email.ilike("%@gmail.com"),
     )
-)
-```
-
-Но чаще в SQLAlchemy 2 пишут проще:
-
-```python
-stmt = select(User).where(
-    User.email == "ivan@example.com",
-    User.name == "Ivan",
 )
 ```
 
 ---
 
-## 17.3. `or_`
+## 23.3 Через `or_`
 
 ```python
 from sqlalchemy import or_
 
 stmt = select(User).where(
     or_(
-        User.email == "ivan@example.com",
-        User.email == "anna@example.com",
+        User.email == "admin@example.com",
+        User.username == "admin",
     )
 )
 ```
 
-SQL:
-
-```sql
-WHERE email = 'ivan@example.com'
-   OR email = 'anna@example.com'
-```
-
 ---
 
-## 17.4. `in_`
+# 24. Сортировка
 
 ```python
-stmt = select(User).where(
-    User.id.in_([1, 2, 3])
-)
-```
-
-SQL:
-
-```sql
-WHERE id IN (1, 2, 3)
-```
-
----
-
-## 17.5. `like` и `ilike`
-
-```python
-stmt = select(User).where(
-    User.email.like("%@example.com")
-)
-```
-
-`LIKE` чувствителен к регистру не во всех БД одинаково.
-
-В PostgreSQL часто используют `ILIKE`:
-
-```python
-stmt = select(User).where(
-    User.email.ilike("%ivan%")
-)
-```
-
-`ILIKE` — поиск без учёта регистра.
-
----
-
-# 18. Сортировка ORDER BY
-
-```python
-stmt = select(User).order_by(User.id)
-```
-
-По убыванию:
-
-```python
-stmt = select(User).order_by(User.id.desc())
+stmt = select(User).order_by(User.created_at.desc())
 ```
 
 По возрастанию:
 
 ```python
-stmt = select(User).order_by(User.id.asc())
+stmt = select(User).order_by(User.created_at.asc())
 ```
+
+Несколько сортировок:
+
+```python
+stmt = select(User).order_by(
+    User.is_active.desc(),
+    User.created_at.desc(),
+)
+```
+
+---
+
+# 25. Limit и offset
+
+```python
+stmt = (
+    select(User)
+    .order_by(User.id)
+    .limit(10)
+    .offset(20)
+)
+```
+
+Это означает:
+
+> пропустить первые 20 строк и взять следующие 10.
+
+Используется для пагинации.
+
+---
+
+# 26. Обновление данных
+
+ORM-вариант:
+
+```python
+def update_user_username(user_id: int, new_username: str) -> User | None:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+
+        if user is None:
+            return None
+
+        user.username = new_username
+
+        session.commit()
+        session.refresh(user)
+
+        return user
+```
+
+SQLAlchemy сам поймёт, что поле изменилось, и выполнит:
+
+```sql
+UPDATE users SET username = ... WHERE users.id = ...
+```
+
+---
+
+# 27. Удаление данных
+
+```python
+def delete_user(user_id: int) -> bool:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+
+        if user is None:
+            return False
+
+        session.delete(user)
+        session.commit()
+
+        return True
+```
+
+---
+
+# 28. Bulk update и bulk delete
+
+Иногда нужно обновить сразу много строк.
+
+```python
+from sqlalchemy import update
+
+
+def deactivate_all_users() -> None:
+    with SessionLocal() as session:
+        stmt = (
+            update(User)
+            .where(User.is_active.is_(True))
+            .values(is_active=False)
+        )
+
+        session.execute(stmt)
+        session.commit()
+```
+
+Удаление:
+
+```python
+from sqlalchemy import delete
+
+
+def delete_inactive_users() -> None:
+    with SessionLocal() as session:
+        stmt = delete(User).where(User.is_active.is_(False))
+
+        session.execute(stmt)
+        session.commit()
+```
+
+Важно:
+
+> Bulk update/delete обходят обычную ORM-логику объектов. Используй аккуратно.
+
+---
+
+# 29. Транзакции
+
+Транзакция — это набор операций, которые должны выполниться вместе.
+
+Например:
+
+1. Создать пользователя
+2. Создать профиль пользователя
+
+Если профиль не создался — пользователь тоже не должен сохраниться.
 
 Пример:
 
 ```python
-users = session.scalars(
-    select(User).order_by(User.id.desc())
-).all()
+def create_two_users():
+    with SessionLocal() as session:
+        try:
+            user1 = User(
+                email="a@example.com",
+                username="a",
+                hashed_password="hash",
+            )
+            user2 = User(
+                email="b@example.com",
+                username="b",
+                hashed_password="hash",
+            )
+
+            session.add_all([user1, user2])
+
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 ```
 
----
-
-# 19. LIMIT и OFFSET
+Лучший стиль:
 
 ```python
-stmt = select(User).limit(10)
-```
-
-Пропустить первые 20:
-
-```python
-stmt = select(User).offset(20).limit(10)
-```
-
-Пример пагинации:
-
-```python
-page = 2
-page_size = 10
-
-stmt = (
-    select(User)
-    .order_by(User.id)
-    .offset((page - 1) * page_size)
-    .limit(page_size)
-)
-
-users = session.scalars(stmt).all()
-```
-
----
-
-# 20. Обновление объекта
-
-Самый ORM-способ:
-
-```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
+def create_two_users():
     with SessionLocal() as session:
         with session.begin():
-            user = session.get(User, 1)
+            user1 = User(
+                email="a@example.com",
+                username="a",
+                hashed_password="hash",
+            )
+            user2 = User(
+                email="b@example.com",
+                username="b",
+                hashed_password="hash",
+            )
 
-            if user is None:
-                print("Не найден")
-                return
-
-            user.name = "Ivan Updated"
-
-
-if __name__ == "__main__":
-    main()
+            session.add_all([user1, user2])
 ```
 
-SQLAlchemy сам увидит, что поле изменилось, и выполнит:
+`with session.begin()`:
 
-```sql
-UPDATE users SET name = 'Ivan Updated' WHERE id = 1;
-```
+- начинает транзакцию
+- если всё хорошо — делает commit
+- если ошибка — делает rollback
 
 ---
 
-## 20.1. Почему не нужен `session.add(user)`?
+# 30. Flush
 
-Если объект был получен через эту же сессию:
+`flush` отправляет SQL в базу, но не делает commit.
+
+Пример:
 
 ```python
-user = session.get(User, 1)
+with SessionLocal() as session:
+    user = User(
+        email="flush@example.com",
+        username="flush_user",
+        hashed_password="hash",
+    )
+
+    session.add(user)
+    session.flush()
+
+    print(user.id)
+
+    session.commit()
 ```
 
-он уже находится под управлением сессии.
+После `flush()` у пользователя уже может появиться `id`.
 
-SQLAlchemy отслеживает изменения.
-
----
-
-# 21. Удаление объекта
+Но если потом сделать:
 
 ```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        with session.begin():
-            user = session.get(User, 1)
-
-            if user is None:
-                print("Не найден")
-                return
-
-            session.delete(user)
-
-
-if __name__ == "__main__":
-    main()
+session.rollback()
 ```
 
-SQL:
-
-```sql
-DELETE FROM users WHERE id = 1;
-```
+то запись исчезнет.
 
 ---
 
-# 22. Добавим несколько моделей
+# 31. Commit vs flush
 
-Сделаем мини-блог:
+## `flush`
 
-- `User` — пользователь
-- `Post` — пост
-- `Comment` — комментарий
-- `Tag` — тег
+- отправляет SQL
+- транзакция ещё не зафиксирована
+- можно откатить
 
-Связи:
+## `commit`
+
+- вызывает flush
+- фиксирует транзакцию
+- изменения становятся постоянными
+
+---
+
+# 32. Связи между таблицами
+
+Добавим задачи пользователя.
+
+Один пользователь может иметь много задач.
+
+Это связь:
 
 ```text
-User 1 -> N Post
-User 1 -> N Comment
-Post 1 -> N Comment
-Post N -> M Tag
+User 1 ---- N Task
 ```
 
 ---
 
-# 23. Модель User и Post: связь один-ко-многим
+# 33. Модель `Task`
 
-Обновим `app/models.py`:
+Обновим `app/models.py`.
 
 ```python
 from datetime import datetime
-from typing import List
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import (
+    String,
+    DateTime,
+    Text,
+    ForeignKey,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -1274,25 +1622,46 @@ class User(Base):
         String(255),
         unique=True,
         nullable=False,
+        index=True,
     )
 
-    name: Mapped[str | None] = mapped_column(
+    username: Mapped[str] = mapped_column(
         String(100),
-        nullable=True,
+        unique=True,
+        nullable=False,
+    )
+
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        default=True,
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    posts: Mapped[List["Post"]] = relationship(
-        back_populates="author",
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
 
-class Post(Base):
-    __tablename__ = "posts"
+class Task(Base):
+    __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -1301,951 +1670,703 @@ class Post(Base):
         nullable=False,
     )
 
-    body: Mapped[str] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True,
+    )
+
+    is_done: Mapped[bool] = mapped_column(
+        default=False,
         nullable=False,
     )
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    author: Mapped["User"] = relationship(
-        back_populates="posts",
+    user: Mapped["User"] = relationship(
+        back_populates="tasks",
     )
 ```
 
 ---
 
-## 23.1. Что такое `ForeignKey`
+# 34. Разбор связи
+
+## 34.1 ForeignKey
 
 ```python
 user_id: Mapped[int] = mapped_column(
-    ForeignKey("users.id"),
+    ForeignKey("users.id", ondelete="CASCADE"),
     nullable=False,
 )
 ```
 
-Это значит:
+Это внешний ключ.
 
-```text
-posts.user_id ссылается на users.id
-```
+Он говорит:
+
+> поле `tasks.user_id` ссылается на `users.id`.
 
 В SQL:
 
 ```sql
-FOREIGN KEY (user_id) REFERENCES users(id)
+FOREIGN KEY(user_id) REFERENCES users(id)
 ```
-
-То есть каждый пост принадлежит пользователю.
 
 ---
 
-## 23.2. Что такое `relationship`
+## 34.2 Relationship
 
 ```python
-posts: Mapped[List["Post"]] = relationship(
-    back_populates="author",
-)
+tasks: Mapped[list["Task"]] = relationship(back_populates="user")
 ```
-
-Это не колонка в таблице.
 
 Это ORM-связь.
 
-Она позволяет писать:
+Она не всегда создаёт колонку в БД.
+
+Колонку создаёт `ForeignKey`.
+
+`relationship` нужен, чтобы писать удобно:
 
 ```python
-user.posts
+user.tasks
 ```
 
-и получать список постов пользователя.
+и получать задачи пользователя.
 
 ---
 
-## 23.3. `back_populates`
+## 34.3 Двусторонняя связь
 
 В `User`:
 
 ```python
-posts = relationship(back_populates="author")
+tasks: Mapped[list["Task"]] = relationship(back_populates="user")
 ```
 
-В `Post`:
+В `Task`:
 
 ```python
-author = relationship(back_populates="posts")
+user: Mapped["User"] = relationship(back_populates="tasks")
 ```
 
-Это две стороны одной связи.
+Это значит:
 
-```text
-User.posts <-> Post.author
+```python
+task.user
+```
+
+даёт пользователя задачи.
+
+```python
+user.tasks
+```
+
+даёт список задач пользователя.
+
+---
+
+## 34.4 Cascade
+
+```python
+cascade="all, delete-orphan"
+```
+
+Это ORM-каскад.
+
+Он означает:
+
+- если удалить пользователя через ORM, его задачи тоже удалятся
+- если убрать задачу из `user.tasks`, она будет удалена
+
+Пример:
+
+```python
+user.tasks.remove(task)
+session.commit()
+```
+
+`task` будет удалена.
+
+---
+
+## 34.5 `ondelete="CASCADE"`
+
+```python
+ForeignKey("users.id", ondelete="CASCADE")
+```
+
+Это каскад на уровне базы данных.
+
+Если удалить пользователя SQL-запросом напрямую:
+
+```sql
+DELETE FROM users WHERE id = 1;
+```
+
+PostgreSQL сам удалит связанные задачи.
+
+---
+
+# 35. Миграция для Task
+
+Создаём миграцию:
+
+```bash
+alembic revision --autogenerate -m "create tasks table"
+```
+
+Проверяем файл миграции.
+
+Применяем:
+
+```bash
+alembic upgrade head
 ```
 
 ---
 
-# 24. Создание пользователя с постами
+# 36. Создание пользователя с задачами
 
 ```python
-from app.database import SessionLocal
-from app.models import User, Post
-
-
-def main() -> None:
+def create_user_with_tasks():
     with SessionLocal() as session:
-        with session.begin():
-            user = User(
-                email="blogger@example.com",
-                name="Blogger",
-            )
+        user = User(
+            email="alice@example.com",
+            username="alice",
+            hashed_password="hash",
+        )
 
-            post1 = Post(
-                title="Первый пост",
-                body="Текст первого поста",
-                author=user,
-            )
+        task1 = Task(title="Learn SQLAlchemy")
+        task2 = Task(title="Learn Alembic")
 
-            post2 = Post(
-                title="Второй пост",
-                body="Текст второго поста",
-                author=user,
-            )
+        user.tasks.append(task1)
+        user.tasks.append(task2)
 
-            session.add(user)
+        session.add(user)
+        session.commit()
 
+        session.refresh(user)
 
-if __name__ == "__main__":
-    main()
+        return user
 ```
 
-Здесь мы создали пользователя и два поста.
+SQLAlchemy сам:
 
-Важно:
-
-```python
-author=user
-```
-
-автоматически связывает пост с пользователем.
-
-Если связь настроена правильно, достаточно сделать:
-
-```python
-session.add(user)
-```
-
-SQLAlchemy добавит и пользователя, и посты.
+1. Создаст пользователя
+2. Получит его `id`
+3. Создаст задачи с `user_id`
 
 ---
 
-# 25. Получение пользователя и его постов
+# 37. Создание задачи для существующего пользователя
 
 ```python
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
+def create_task_for_user(user_id: int, title: str) -> Task | None:
     with SessionLocal() as session:
-        user = session.get(User, 1)
+        user = session.get(User, user_id)
 
         if user is None:
-            return
+            return None
 
-        print(user.email)
+        task = Task(title=title, user=user)
 
-        for post in user.posts:
-            print(post.title)
+        session.add(task)
+        session.commit()
+        session.refresh(task)
 
+        return task
+```
 
-if __name__ == "__main__":
-    main()
+Можно и так:
+
+```python
+task = Task(title=title, user_id=user_id)
+```
+
+Но если пользователя с таким id нет — база выдаст ошибку внешнего ключа.
+
+---
+
+# 38. JOIN-запросы
+
+## 38.1 Получить задачи вместе с пользователями
+
+```python
+from sqlalchemy import select
+
+stmt = (
+    select(Task)
+    .join(Task.user)
+    .where(User.email == "alice@example.com")
+)
+
+tasks = session.scalars(stmt).all()
+```
+
+SQL примерно:
+
+```sql
+SELECT tasks.*
+FROM tasks
+JOIN users ON users.id = tasks.user_id
+WHERE users.email = 'alice@example.com';
 ```
 
 ---
 
-## 25.1. Lazy loading
-
-Когда ты пишешь:
+## 38.2 Выбрать конкретные колонки
 
 ```python
-user = session.get(User, 1)
+stmt = (
+    select(User.email, Task.title)
+    .join(Task, Task.user_id == User.id)
+)
+
+rows = session.execute(stmt).all()
+
+for email, title in rows:
+    print(email, title)
 ```
 
-SQLAlchemy сначала загружает только пользователя.
-
-Когда ты потом обращаешься:
+Здесь мы используем:
 
 ```python
-user.posts
+session.execute(stmt)
 ```
 
-SQLAlchemy делает дополнительный SQL-запрос за постами.
-
-Это называется **lazy loading** — ленивая загрузка.
+потому что возвращаются не ORM-объекты `User`, а строки с колонками.
 
 ---
 
-# 26. Проблема N+1
+# 39. Lazy loading и проблема N+1
 
-Представь:
+Допустим:
 
 ```python
 users = session.scalars(select(User)).all()
 
 for user in users:
-    print(user.posts)
+    print(user.tasks)
 ```
 
-Что произойдёт:
+Что произойдёт?
 
-```text
-1 запрос — получить всех пользователей
-N запросов — получить посты каждого пользователя
+1 запрос:
+
+```sql
+SELECT * FROM users;
 ```
 
-Если пользователей 100, будет 101 запрос.
+Потом для каждого пользователя отдельный запрос:
+
+```sql
+SELECT * FROM tasks WHERE user_id = 1;
+SELECT * FROM tasks WHERE user_id = 2;
+SELECT * FROM tasks WHERE user_id = 3;
+...
+```
 
 Это называется проблема **N+1**.
 
 ---
 
-# 27. `selectinload`: правильная загрузка коллекций
+# 40. `selectinload`
 
-Чтобы избежать N+1, используем `selectinload`.
+Чтобы загрузить связи эффективно:
 
 ```python
-from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.database import SessionLocal
-from app.models import User
+stmt = select(User).options(selectinload(User.tasks))
 
+users = session.scalars(stmt).all()
 
-def main() -> None:
-    with SessionLocal() as session:
-        stmt = (
-            select(User)
-            .options(selectinload(User.posts))
-        )
-
-        users = session.scalars(stmt).all()
-
-        for user in users:
-            print(user.email)
-
-            for post in user.posts:
-                print("  ", post.title)
-
-
-if __name__ == "__main__":
-    main()
+for user in users:
+    print(user.tasks)
 ```
 
 SQLAlchemy сделает примерно:
 
 ```sql
 SELECT * FROM users;
-SELECT * FROM posts WHERE posts.user_id IN (...);
+
+SELECT * FROM tasks WHERE tasks.user_id IN (1, 2, 3, ...);
 ```
 
-То есть вместо 101 запроса будет 2.
+Это обычно лучший вариант для коллекций.
 
 ---
 
-# 28. `joinedload`
-
-`joinedload` загружает связь через `JOIN`.
+# 41. `joinedload`
 
 ```python
 from sqlalchemy.orm import joinedload
 
-stmt = select(User).options(joinedload(User.posts))
+stmt = select(Task).options(joinedload(Task.user))
+
+tasks = session.scalars(stmt).all()
 ```
 
-Но для коллекций нужно использовать `.unique()`:
+`joinedload` делает `JOIN`.
 
-```python
-result = session.execute(
-    select(User).options(joinedload(User.posts))
-)
-
-users = result.unique().scalars().all()
-```
-
-Почему?
-
-Потому что `JOIN` может вернуть несколько строк на одного пользователя:
+Хорошо подходит для связи многие-к-одному:
 
 ```text
-user1 + post1
-user1 + post2
-user1 + post3
+Task -> User
 ```
 
-`.unique()` убирает дубли ORM-объектов.
-
----
-
-## 28.1. Когда использовать `selectinload`, а когда `joinedload`
-
-Обычно:
-
-```text
-selectinload — хороший выбор для one-to-many и many-to-many
-joinedload   — хороший выбор для many-to-one / one-to-one
-```
-
-Пример:
+Для коллекций `joinedload(User.tasks)` может размножать строки, поэтому часто нужен:
 
 ```python
-select(Post).options(joinedload(Post.author))
-```
-
-Постов много, но у каждого один автор — `joinedload` удобен.
-
----
-
-# 29. Комментарии: несколько связей
-
-Добавим модель `Comment`.
-
-```python
-from datetime import datetime
-from typing import List
-
-from sqlalchemy import ForeignKey, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.database import Base
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-
-    name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    posts: Mapped[List["Post"]] = relationship(
-        back_populates="author",
-    )
-
-    comments: Mapped[List["Comment"]] = relationship(
-        back_populates="author",
-    )
-
-
-class Post(Base):
-    __tablename__ = "posts"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-
-    body: Mapped[str] = mapped_column(Text, nullable=False)
-
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    author: Mapped["User"] = relationship(
-        back_populates="posts",
-    )
-
-    comments: Mapped[List["Comment"]] = relationship(
-        back_populates="post",
-        cascade="all, delete-orphan",
-    )
-
-
-class Comment(Base):
-    __tablename__ = "comments"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-
-    post_id: Mapped[int] = mapped_column(
-        ForeignKey("posts.id"),
-        nullable=False,
-    )
-
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    post: Mapped["Post"] = relationship(
-        back_populates="comments",
-    )
-
-    author: Mapped["User"] = relationship(
-        back_populates="comments",
-    )
+users = session.scalars(stmt).unique().all()
 ```
 
 ---
 
-# 30. Cascade
+# 42. Полная CRUD-логика для User и Task
 
-```python
-comments: Mapped[List["Comment"]] = relationship(
-    back_populates="post",
-    cascade="all, delete-orphan",
-)
-```
-
-Это значит:
-
-- если удалить `Post`, SQLAlchemy удалит его комментарии;
-- если комментарий убрать из `post.comments`, он будет удалён из базы.
-
-Пример:
-
-```python
-post.comments.remove(comment)
-```
-
-С `delete-orphan` комментарий станет «сиротой» и будет удалён.
-
----
-
-## Важно
-
-Cascade на уровне ORM — это не то же самое, что `ON DELETE CASCADE` в базе.
-
-Для уровня PostgreSQL можно писать:
-
-```python
-ForeignKey("posts.id", ondelete="CASCADE")
-```
-
-Но тогда ещё нужно правильно настроить отношения, например:
-
-```python
-passive_deletes=True
-```
-
----
-
-# 31. Many-to-many: посты и теги
-
-Связь многие-ко-многим:
-
-```text
-Post N <-> M Tag
-```
-
-Один пост может иметь много тегов.
-
-Один тег может быть у многих постов.
-
-Для этого нужна промежуточная таблица:
-
-```text
-post_tags
-```
-
----
-
-## 31.1. Таблица связи
-
-```python
-from sqlalchemy import Table, Column, ForeignKey
-
-post_tags = Table(
-    "post_tags",
-    Base.metadata,
-    Column("post_id", ForeignKey("posts.id"), primary_key=True),
-    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
-)
-```
-
----
-
-## 31.2. Полные модели с Tag
-
-```python
-from datetime import datetime
-from typing import List
-
-from sqlalchemy import (
-    ForeignKey,
-    String,
-    Text,
-    func,
-    Table,
-    Column,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.database import Base
-
-
-post_tags = Table(
-    "post_tags",
-    Base.metadata,
-    Column("post_id", ForeignKey("posts.id"), primary_key=True),
-    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
-)
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-
-    name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
-
-    posts: Mapped[List["Post"]] = relationship(back_populates="author")
-
-    comments: Mapped[List["Comment"]] = relationship(back_populates="author")
-
-
-class Post(Base):
-    __tablename__ = "posts"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-
-    body: Mapped[str] = mapped_column(Text, nullable=False)
-
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
-
-    author: Mapped["User"] = relationship(back_populates="posts")
-
-    comments: Mapped[List["Comment"]] = relationship(
-        back_populates="post",
-        cascade="all, delete-orphan",
-    )
-
-    tags: Mapped[List["Tag"]] = relationship(
-        secondary=post_tags,
-        back_populates="posts",
-    )
-
-
-class Comment(Base):
-    __tablename__ = "comments"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-
-    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), nullable=False)
-
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
-
-    post: Mapped["Post"] = relationship(back_populates="comments")
-
-    author: Mapped["User"] = relationship(back_populates="comments")
-
-
-class Tag(Base):
-    __tablename__ = "tags"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-
-    posts: Mapped[List["Post"]] = relationship(
-        secondary=post_tags,
-        back_populates="tags",
-    )
-```
-
----
-
-# 32. Создание поста с тегами
-
-```python
-from app.database import SessionLocal
-from app.models import User, Post, Tag
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        with session.begin():
-            user = User(
-                email="tag_user@example.com",
-                name="Tag User",
-            )
-
-            python_tag = Tag(name="python")
-            sqlalchemy_tag = Tag(name="sqlalchemy")
-
-            post = Post(
-                title="SQLAlchemy 2 Guide",
-                body="Очень подробный текст",
-                author=user,
-                tags=[python_tag, sqlalchemy_tag],
-            )
-
-            session.add(post)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-SQLAlchemy добавит:
-
-- пользователя;
-- теги;
-- пост;
-- записи в таблицу `post_tags`.
-
----
-
-# 33. JOIN-запросы
-
-## 33.1. Получить посты с авторами
+Создадим `app/crud.py`.
 
 ```python
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 
 from app.database import SessionLocal
-from app.models import Post
+from app.models import User, Task
 
 
-def main() -> None:
+def create_user(
+    email: str,
+    username: str,
+    hashed_password: str,
+) -> User:
     with SessionLocal() as session:
-        posts = session.scalars(
-            select(Post).options(joinedload(Post.author))
-        ).all()
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=hashed_password,
+        )
 
-        for post in posts:
-            print(post.title, post.author.email)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
-
-if __name__ == "__main__":
-    main()
-```
-
-Это ORM-способ.
-
----
-
-## 33.2. Явный JOIN
-
-```python
-from sqlalchemy import select
-
-from app.database import SessionLocal
-from app.models import User, Post
+        return user
 
 
-def main() -> None:
+def get_user(user_id: int) -> User | None:
+    with SessionLocal() as session:
+        return session.get(User, user_id)
+
+
+def get_user_with_tasks(user_id: int) -> User | None:
     with SessionLocal() as session:
         stmt = (
-            select(Post, User)
-            .join(User, Post.user_id == User.id)
+            select(User)
+            .options(selectinload(User.tasks))
+            .where(User.id == user_id)
         )
 
-        rows = session.execute(stmt).all()
-
-        for post, user in rows:
-            print(post.title, user.email)
+        return session.scalar(stmt)
 
 
-if __name__ == "__main__":
-    main()
-```
-
-Здесь:
-
-```python
-select(Post, User)
-```
-
-возвращает пары:
-
-```python
-(Post, User)
-```
-
----
-
-## 33.3. JOIN через relationship
-
-Можно проще:
-
-```python
-stmt = select(Post, User).join(Post.author)
-```
-
-SQLAlchemy сам понимает условие связи.
-
----
-
-# 34. Агрегации: COUNT, GROUP BY
-
-## 34.1. Посчитать пользователей
-
-```python
-from sqlalchemy import select, func
-
-from app.database import SessionLocal
-from app.models import User
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        count = session.scalar(
-            select(func.count(User.id))
-        )
-
-        print(count)
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## 34.2. Количество постов у каждого пользователя
-
-```python
-from sqlalchemy import select, func
-
-from app.database import SessionLocal
-from app.models import User, Post
-
-
-def main() -> None:
+def list_users(limit: int = 100, offset: int = 0) -> list[User]:
     with SessionLocal() as session:
         stmt = (
-            select(User.email, func.count(Post.id))
-            .join(Post, Post.user_id == User.id)
-            .group_by(User.id)
+            select(User)
+            .order_by(User.id)
+            .limit(limit)
+            .offset(offset)
         )
 
-        rows = session.execute(stmt).all()
-
-        for email, posts_count in rows:
-            print(email, posts_count)
+        return list(session.scalars(stmt).all())
 
 
-if __name__ == "__main__":
-    main()
+def update_user_email(user_id: int, email: str) -> User | None:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+
+        if user is None:
+            return None
+
+        user.email = email
+
+        session.commit()
+        session.refresh(user)
+
+        return user
+
+
+def delete_user(user_id: int) -> bool:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+
+        if user is None:
+            return False
+
+        session.delete(user)
+        session.commit()
+
+        return True
+
+
+def create_task(user_id: int, title: str, description: str | None = None) -> Task:
+    with SessionLocal() as session:
+        task = Task(
+            user_id=user_id,
+            title=title,
+            description=description,
+        )
+
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+
+        return task
+
+
+def list_user_tasks(user_id: int) -> list[Task]:
+    with SessionLocal() as session:
+        stmt = (
+            select(Task)
+            .where(Task.user_id == user_id)
+            .order_by(Task.created_at.desc())
+        )
+
+        return list(session.scalars(stmt).all())
+
+
+def mark_task_done(task_id: int) -> Task | None:
+    with SessionLocal() as session:
+        task = session.get(Task, task_id)
+
+        if task is None:
+            return None
+
+        task.is_done = True
+
+        session.commit()
+        session.refresh(task)
+
+        return task
 ```
 
 ---
 
-## 34.3. LEFT JOIN
-
-Если нужно показать пользователей даже без постов:
-
-```python
-stmt = (
-    select(User.email, func.count(Post.id))
-    .outerjoin(Post, Post.user_id == User.id)
-    .group_by(User.id)
-)
-```
-
----
-
-# 35. Индексы и ограничения
-
-## 35.1. Index
+# 43. Индексы
 
 Индекс ускоряет поиск.
 
-Например, если часто ищешь по email:
+Простой индекс:
 
 ```python
-email: Mapped[str] = mapped_column(
-    String(255),
-    unique=True,
-    index=True,
-    nullable=False,
-)
+email: Mapped[str] = mapped_column(index=True)
 ```
 
-Но `unique=True` в PostgreSQL и так создаёт уникальный индекс.
+Но для более сложных случаев лучше использовать `Index`.
 
----
-
-## 35.2. Явный индекс
+Пример:
 
 ```python
 from sqlalchemy import Index
-```
 
-```python
-class Post(Base):
-    __tablename__ = "posts"
+
+class Task(Base):
+    __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    is_done: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     __table_args__ = (
-        Index("ix_posts_title", "title"),
+        Index("ix_tasks_user_id_is_done", "user_id", "is_done"),
     )
+```
+
+Это составной индекс:
+
+```sql
+CREATE INDEX ix_tasks_user_id_is_done
+ON tasks (user_id, is_done);
+```
+
+Полезно для запросов:
+
+```python
+select(Task).where(
+    Task.user_id == user_id,
+    Task.is_done.is_(False),
+)
 ```
 
 ---
 
-## 35.3. UniqueConstraint
+# 44. Constraints
 
-Если уникальность должна быть по нескольким полям:
+Constraints — ограничения базы данных.
 
-```python
-from sqlalchemy import UniqueConstraint
-```
+Например:
 
-```python
-class User(Base):
-    __tablename__ = "users"
+- `UNIQUE`
+- `CHECK`
+- `FOREIGN KEY`
+- `PRIMARY KEY`
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("email", name="uq_users_email"),
-    )
-```
-
----
-
-## 35.4. CheckConstraint
-
-Например, рейтинг должен быть от 1 до 5:
+Пример `CheckConstraint`:
 
 ```python
 from sqlalchemy import CheckConstraint
-```
 
-```python
-class Review(Base):
-    __tablename__ = "reviews"
+
+class Product(Base):
+    __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    rating: Mapped[int] = mapped_column(nullable=False)
+
+    price: Mapped[int] = mapped_column(nullable=False)
 
     __table_args__ = (
-        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_rating_range"),
+        CheckConstraint("price >= 0", name="ck_products_price_positive"),
     )
 ```
 
+Теперь база не позволит сохранить отрицательную цену.
+
 ---
 
-# 36. PostgreSQL-специфичные типы
+# 45. Naming convention
 
-SQLAlchemy умеет использовать специальные типы PostgreSQL.
+Очень хорошая практика — задать имена constraints автоматически.
 
-Импорт:
+Обновим `app/database.py`.
 
 ```python
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy import MetaData, create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+from app.config import DATABASE_URL
+
+
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=convention)
+
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+)
+```
+
+Зачем это нужно?
+
+Alembic лучше работает с миграциями, когда constraints имеют предсказуемые имена.
+
+Например:
+
+```text
+pk_users
+uq_users_email
+fk_tasks_user_id_users
 ```
 
 ---
 
-## 36.1. UUID primary key
+# 46. Важное предупреждение про naming convention
 
-Установим модель с UUID:
+Если ты уже создал миграции без naming convention, а потом добавил convention, Alembic может увидеть изменения имён constraints.
+
+В учебном проекте можно сбросить базу и миграции.
+
+В реальном проекте нужно аккуратно мигрировать.
+
+---
+
+# 47. UUID вместо integer id
+
+В PostgreSQL часто используют UUID.
 
 ```python
 import uuid
-
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.database import Base
 
 
-class ApiKey(Base):
-    __tablename__ = "api_keys"
+class User(Base):
+    __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
     )
-
-    name: Mapped[str]
 ```
 
-Разбор:
+Тогда `id` будет UUID:
 
-```python
-UUID(as_uuid=True)
+```text
+550e8400-e29b-41d4-a716-446655440000
 ```
 
-значит SQLAlchemy будет работать с Python-объектом `uuid.UUID`, а не со строкой.
+Важно:
 
 ```python
 default=uuid.uuid4
 ```
 
-генерирует UUID на стороне Python.
+Без скобок.
 
-Важно писать именно:
+Правильно:
 
 ```python
 default=uuid.uuid4
 ```
 
-а не:
+Неправильно:
 
 ```python
 default=uuid.uuid4()
 ```
 
-Потому что `uuid.uuid4()` вызовется один раз при загрузке файла.
+Почему?
+
+- `uuid.uuid4` — функция, SQLAlchemy вызовет её при создании строки
+- `uuid.uuid4()` — вызовется один раз при запуске приложения
 
 ---
 
-## 36.2. JSONB
+# 48. PostgreSQL JSONB
 
-PostgreSQL имеет мощный тип `JSONB`.
+PostgreSQL умеет хранить JSON.
 
 ```python
 from sqlalchemy.dialects.postgresql import JSONB
-```
 
-```python
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -2263,13 +2384,12 @@ class Event(Base):
 event = Event(
     payload={
         "type": "user_registered",
-        "user_id": 123,
-        "source": "web",
+        "user_id": 1,
     }
 )
 ```
 
-Поиск:
+Фильтрация:
 
 ```python
 stmt = select(Event).where(
@@ -2279,239 +2399,62 @@ stmt = select(Event).where(
 
 ---
 
-## 36.3. ARRAY
+# 49. Enum
 
-```python
-from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy import String
-```
-
-```python
-class Article(Base):
-    __tablename__ = "articles"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    tags: Mapped[list[str]] = mapped_column(
-        ARRAY(String),
-        nullable=False,
-        default=list,
-    )
-```
-
-Важно:
-
-```python
-default=list
-```
-
-а не:
-
-```python
-default=[]
-```
-
-Потому что список — изменяемый объект.
-
----
-
-# 37. Enum
-
-## 37.1. Python Enum
+Можно использовать Python Enum.
 
 ```python
 import enum
-
-
-class PostStatus(enum.Enum):
-    DRAFT = "draft"
-    PUBLISHED = "published"
-    ARCHIVED = "archived"
-```
-
-## 37.2. SQLAlchemy Enum
-
-```python
 from sqlalchemy import Enum
-```
 
-```python
-class Post(Base):
-    __tablename__ = "posts"
+
+class TaskStatus(enum.Enum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class Task(Base):
+    __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    status: Mapped[PostStatus] = mapped_column(
-        Enum(PostStatus, name="post_status"),
-        default=PostStatus.DRAFT,
+    status: Mapped[TaskStatus] = mapped_column(
+        Enum(TaskStatus, name="task_status"),
+        default=TaskStatus.TODO,
         nullable=False,
     )
 ```
 
-Теперь:
+Alembic создаст PostgreSQL enum type.
 
-```python
-post.status = PostStatus.PUBLISHED
-```
+С enum нужно быть осторожным: изменение enum в PostgreSQL требует специальных миграций.
 
 ---
 
-# 38. Даты и время
+# 50. Миграции Alembic подробно
 
-Для PostgreSQL обычно используют timezone-aware `DateTime`.
-
-```python
-from datetime import datetime
-from sqlalchemy import DateTime, func
-```
-
-```python
-created_at: Mapped[datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now(),
-    nullable=False,
-)
-
-updated_at: Mapped[datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now(),
-    onupdate=func.now(),
-    nullable=False,
-)
-```
-
-## Разница `default` и `server_default`
-
-```python
-default=...
-```
-
-значение создаётся Python-кодом.
-
-```python
-server_default=...
-```
-
-значение создаётся базой данных.
-
-Для `created_at` часто лучше:
-
-```python
-server_default=func.now()
-```
-
----
-
-# 39. Alembic: миграции
-
-`create_all()` подходит для старта, но в реальном проекте используют миграции.
-
-## 39.1. Что такое миграция?
-
-Миграция — это файл с изменениями схемы БД.
-
-Например:
-
-```text
-добавить таблицу users
-добавить колонку users.name
-создать индекс
-удалить колонку
-```
-
----
-
-## 39.2. Инициализация Alembic
-
-В корне проекта:
+## 50.1 Создать пустую миграцию
 
 ```bash
-alembic init alembic
+alembic revision -m "manual migration"
 ```
 
-Появится:
-
-```text
-alembic/
-    env.py
-    versions/
-alembic.ini
-```
+Она создаст файл без автогенерации.
 
 ---
 
-## 39.3. Настроить alembic.ini
-
-Найди строку:
-
-```ini
-sqlalchemy.url = driver://user:pass@localhost/dbname
-```
-
-Можно оставить пустой, если берём URL из `.env`.
-
----
-
-## 39.4. Настроить `alembic/env.py`
-
-Открой `alembic/env.py`.
-
-Добавь импорт настроек и моделей:
-
-```python
-from app.config import settings
-from app.database import Base
-from app import models
-```
-
-Найди:
-
-```python
-target_metadata = None
-```
-
-Замени на:
-
-```python
-target_metadata = Base.metadata
-```
-
-Найди функцию `run_migrations_online()` и настрой URL:
-
-```python
-def run_migrations_online() -> None:
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
-
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-        )
-
-        with context.begin_transaction():
-            context.run_migrations()
-```
-
----
-
-## 39.5. Создать миграцию
+## 50.2 Создать миграцию автоматически
 
 ```bash
-alembic revision --autogenerate -m "create initial tables"
+alembic revision --autogenerate -m "add something"
 ```
 
-Alembic сравнит модели SQLAlchemy с базой и создаст файл миграции.
+Alembic сравнивает модели и базу.
 
 ---
 
-## 39.6. Применить миграции
+## 50.3 Применить все миграции
 
 ```bash
 alembic upgrade head
@@ -2519,7 +2462,7 @@ alembic upgrade head
 
 ---
 
-## 39.7. Откатить последнюю миграцию
+## 50.4 Откатить последнюю миграцию
 
 ```bash
 alembic downgrade -1
@@ -2527,7 +2470,23 @@ alembic downgrade -1
 
 ---
 
-## 39.8. Посмотреть текущую версию
+## 50.5 Откатиться в самое начало
+
+```bash
+alembic downgrade base
+```
+
+---
+
+## 50.6 Посмотреть историю
+
+```bash
+alembic history
+```
+
+---
+
+## 50.7 Посмотреть текущую версию базы
 
 ```bash
 alembic current
@@ -2535,693 +2494,328 @@ alembic current
 
 ---
 
-## 39.9. Важно про autogenerate
-
-`--autogenerate` удобен, но его надо проверять.
-
-Alembic не всегда идеально понимает:
-
-- переименование колонок;
-- сложные изменения enum;
-- кастомные SQL;
-- некоторые изменения constraints.
-
-Всегда открывай файл миграции и проверяй.
-
----
-
-# 40. Bulk UPDATE и DELETE
-
-Иногда нужно обновить много строк без загрузки объектов.
-
-## 40.1. Bulk update
-
-```python
-from sqlalchemy import update
-
-stmt = (
-    update(User)
-    .where(User.email.ilike("%@old-domain.com"))
-    .values(name="Old domain user")
-)
-
-with SessionLocal() as session:
-    with session.begin():
-        session.execute(stmt)
-```
-
----
-
-## 40.2. Bulk delete
-
-```python
-from sqlalchemy import delete
-
-stmt = delete(User).where(User.name.is_(None))
-
-with SessionLocal() as session:
-    with session.begin():
-        session.execute(stmt)
-```
-
----
-
-## Важно
-
-Bulk-операции обходят часть ORM-механизмов.
-
-Например, они не всегда синхронизируют уже загруженные объекты в сессии.
-
-Для junior-уровня правило простое:
-
-```text
-Если работаешь с конкретным объектом — загружай объект и меняй его.
-Если массовая операция — используй update/delete.
-```
-
----
-
-# 41. Обработка ошибок
-
-## 41.1. IntegrityError
-
-Если нарушена уникальность email:
-
-```python
-from sqlalchemy.exc import IntegrityError
-
-try:
-    with SessionLocal() as session:
-        with session.begin():
-            user = User(email="ivan@example.com")
-            session.add(user)
-
-except IntegrityError:
-    print("Такой email уже существует")
-```
-
----
-
-## 41.2. Почему ошибка возникает на commit/flush?
-
-Когда ты делаешь:
-
-```python
-session.add(user)
-```
-
-SQL ещё может не выполниться.
-
-Ошибка может возникнуть на:
-
-```python
-session.flush()
-```
-
-или:
-
-```python
-session.commit()
-```
-
----
-
-# 42. Flush
-
-## 42.1. Что такое `flush`
-
-`flush` отправляет изменения в базу, но не делает `commit`.
-
-Пример:
-
-```python
-with SessionLocal() as session:
-    with session.begin():
-        user = User(email="flush@example.com")
-        session.add(user)
-
-        session.flush()
-
-        print(user.id)
-```
-
-После `flush()` у пользователя уже есть `id`.
-
-Но если потом будет ошибка, вся транзакция откатится.
-
----
-
-## 42.2. Когда нужен flush
-
-Например, нужно создать пользователя, получить его `id`, и использовать для другой записи.
-
-Хотя чаще можно использовать relationship:
-
-```python
-post = Post(author=user, title="...", body="...")
-```
-
-Но иногда `flush()` полезен.
-
----
-
-# 43. Refresh
-
-`refresh()` перезагружает объект из базы.
-
-```python
-session.refresh(user)
-```
-
-Например, если база сама заполнила поля:
-
-```python
-created_at
-```
-
-и ты хочешь сразу увидеть актуальное значение.
-
----
-
-# 44. Expire on commit
-
-Мы в `sessionmaker` поставили:
-
-```python
-expire_on_commit=False
-```
-
-По умолчанию SQLAlchemy после `commit()` «протухляет» объекты.
-
-То есть при обращении к полю после коммита может быть дополнительный запрос.
-
-Для веб-приложений часто удобно ставить:
-
-```python
-expire_on_commit=False
-```
-
-Чтобы после коммита спокойно читать:
-
-```python
-user.id
-user.email
-```
-
----
-
-# 45. Репозиторий: простой слой доступа к данным
-
-В junior-проектах часто делают функции для работы с БД.
-
-Например `app/repositories/users.py`:
-
-```python
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.models import User
-
-
-def create_user(
-    session: Session,
-    *,
-    email: str,
-    name: str | None = None,
-) -> User:
-    user = User(email=email, name=name)
-    session.add(user)
-    session.flush()
-    return user
-
-
-def get_user_by_id(session: Session, user_id: int) -> User | None:
-    return session.get(User, user_id)
-
-
-def get_user_by_email(session: Session, email: str) -> User | None:
-    return session.scalar(
-        select(User).where(User.email == email)
-    )
-
-
-def list_users(
-    session: Session,
-    *,
-    limit: int = 100,
-    offset: int = 0,
-) -> list[User]:
-    return list(
-        session.scalars(
-            select(User)
-            .order_by(User.id)
-            .limit(limit)
-            .offset(offset)
-        )
-    )
-```
-
-Использование:
-
-```python
-from app.database import SessionLocal
-from app.repositories.users import create_user, list_users
-
-
-def main() -> None:
-    with SessionLocal() as session:
-        with session.begin():
-            user = create_user(
-                session,
-                email="repo@example.com",
-                name="Repo User",
-            )
-
-        users = list_users(session)
-
-        for user in users:
-            print(user.email)
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-# 46. Async SQLAlchemy 2
-
-SQLAlchemy 2 поддерживает async.
-
-Для PostgreSQL установи:
+## 50.8 Посмотреть последнюю миграцию
 
 ```bash
-pip install "psycopg[binary]" sqlalchemy
+alembic heads
 ```
-
-Строка подключения:
-
-```env
-ASYNC_DATABASE_URL=postgresql+psycopg://app:app_password@localhost:5432/app_db
-```
-
-Для psycopg v3 async используется тот же драйвер `psycopg`, но через async engine.
 
 ---
 
-## 46.1. Async database.py
+# 51. Пример изменения модели
+
+Допустим, хотим добавить пользователю `full_name`.
+
+В модель `User` добавляем:
 
 ```python
-from sqlalchemy.ext.asyncio import (
-    AsyncAttrs,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.orm import DeclarativeBase
-
-from app.config import settings
-
-
-async_engine = create_async_engine(
-    settings.ASYNC_DATABASE_URL,
-    echo=True,
-)
-
-
-class AsyncBase(AsyncAttrs, DeclarativeBase):
-    pass
-
-
-AsyncSessionLocal = async_sessionmaker(
-    bind=async_engine,
-    expire_on_commit=False,
-    autoflush=False,
+full_name: Mapped[str | None] = mapped_column(
+    String(200),
+    nullable=True,
 )
 ```
 
----
+Создаём миграцию:
 
-## 46.2. Async select
+```bash
+alembic revision --autogenerate -m "add full_name to users"
+```
+
+Alembic создаст:
 
 ```python
-from sqlalchemy import select
+def upgrade() -> None:
+    op.add_column(
+        "users",
+        sa.Column("full_name", sa.String(length=200), nullable=True),
+    )
 
-from app.async_database import AsyncSessionLocal
-from app.models import User
 
+def downgrade() -> None:
+    op.drop_column("users", "full_name")
+```
 
-async def main() -> None:
-    async with AsyncSessionLocal() as session:
-        result = await session.scalars(
-            select(User).where(User.email == "ivan@example.com")
-        )
+Применяем:
 
-        user = result.first()
-
-        if user:
-            print(user.email)
+```bash
+alembic upgrade head
 ```
 
 ---
 
-## 46.3. Async transaction
+# 52. Добавление NOT NULL колонки в существующую таблицу
+
+Это частая ошибка новичков.
+
+Допустим, в таблице `users` уже есть данные.
+
+Ты добавляешь:
 
 ```python
-async with AsyncSessionLocal() as session:
-    async with session.begin():
-        user = User(email="async@example.com")
-        session.add(user)
+age: Mapped[int] = mapped_column(nullable=False)
+```
+
+Alembic сгенерирует:
+
+```python
+op.add_column("users", sa.Column("age", sa.Integer(), nullable=False))
+```
+
+PostgreSQL скажет:
+
+```text
+column "age" contains null values
+```
+
+Почему?
+
+Потому что старые строки не имеют значения `age`.
+
+Правильный вариант:
+
+## Шаг 1. Добавить nullable колонку
+
+```python
+op.add_column("users", sa.Column("age", sa.Integer(), nullable=True))
+```
+
+## Шаг 2. Заполнить данные
+
+```python
+op.execute("UPDATE users SET age = 0 WHERE age IS NULL")
+```
+
+## Шаг 3. Сделать NOT NULL
+
+```python
+op.alter_column("users", "age", nullable=False)
+```
+
+Полная миграция:
+
+```python
+def upgrade() -> None:
+    op.add_column(
+        "users",
+        sa.Column("age", sa.Integer(), nullable=True),
+    )
+
+    op.execute("UPDATE users SET age = 0 WHERE age IS NULL")
+
+    op.alter_column(
+        "users",
+        "age",
+        nullable=False,
+    )
+
+
+def downgrade() -> None:
+    op.drop_column("users", "age")
 ```
 
 ---
 
-## 46.4. Важно про lazy loading в async
+# 53. Изменение типа колонки
 
-В async SQLAlchemy ленивые загрузки могут быть неудобными.
+Например, `username` был `String(50)`, стал `String(100)`.
 
-Лучше заранее использовать:
+Миграция:
 
 ```python
-selectinload(...)
+def upgrade() -> None:
+    op.alter_column(
+        "users",
+        "username",
+        existing_type=sa.String(length=50),
+        type_=sa.String(length=100),
+        existing_nullable=False,
+    )
+
+
+def downgrade() -> None:
+    op.alter_column(
+        "users",
+        "username",
+        existing_type=sa.String(length=100),
+        type_=sa.String(length=50),
+        existing_nullable=False,
+    )
 ```
+
+---
+
+# 54. Переименование колонки
+
+Alembic autogenerate часто не понимает переименование.
+
+Если было:
+
+```python
+username
+```
+
+стало:
+
+```python
+login
+```
+
+Alembic может сгенерировать:
+
+```python
+drop_column("username")
+add_column("login")
+```
+
+Это опасно: данные потеряются.
+
+Правильно вручную:
+
+```python
+def upgrade() -> None:
+    op.alter_column(
+        "users",
+        "username",
+        new_column_name="login",
+    )
+
+
+def downgrade() -> None:
+    op.alter_column(
+        "users",
+        "login",
+        new_column_name="username",
+    )
+```
+
+---
+
+# 55. Переименование таблицы
+
+```python
+def upgrade() -> None:
+    op.rename_table("users", "accounts")
+
+
+def downgrade() -> None:
+    op.rename_table("accounts", "users")
+```
+
+---
+
+# 56. Индексы в миграциях
+
+Создать индекс:
+
+```python
+def upgrade() -> None:
+    op.create_index(
+        "ix_users_email",
+        "users",
+        ["email"],
+        unique=False,
+    )
+
+
+def downgrade() -> None:
+    op.drop_index(
+        "ix_users_email",
+        table_name="users",
+    )
+```
+
+Уникальный индекс:
+
+```python
+op.create_index(
+    "uq_users_email_lower",
+    "users",
+    [sa.text("lower(email)")],
+    unique=True,
+)
+```
+
+---
+
+# 57. Миграции данных
+
+Иногда миграция меняет не только структуру, но и данные.
 
 Например:
 
 ```python
-stmt = select(User).options(selectinload(User.posts))
-users = (await session.scalars(stmt)).all()
+def upgrade() -> None:
+    op.execute("""
+        UPDATE users
+        SET is_active = true
+        WHERE is_active IS NULL
+    """)
 ```
 
----
-
-# 47. Частые ошибки новичков
-
-## 47.1. Использовать старый `session.query`
-
-Старый стиль:
+Можно использовать SQLAlchemy table:
 
 ```python
-session.query(User).filter(User.id == 1).first()
-```
-
-В SQLAlchemy 2 лучше так:
-
-```python
-session.scalar(
-    select(User).where(User.id == 1)
+users = sa.table(
+    "users",
+    sa.column("id", sa.Integer),
+    sa.column("email", sa.String),
 )
+
+def upgrade() -> None:
+    connection = op.get_bind()
+
+    connection.execute(
+        users.update()
+        .where(users.c.email == "admin@example.com")
+        .values(email="root@example.com")
+    )
 ```
 
 ---
 
-## 47.2. Забыть commit
+# 58. Alembic autogenerate не всесилен
 
-```python
-session.add(user)
-```
+Alembic хорошо видит:
 
-не означает, что данные уже навсегда записаны.
+- новые таблицы
+- удалённые таблицы
+- новые колонки
+- удалённые колонки
+- индексы
+- foreign keys
+- изменение nullable
+- изменение типа, если `compare_type=True`
 
-Нужно:
+Alembic плохо или не всегда видит:
 
-```python
-session.commit()
-```
+- переименование колонок
+- переименование таблиц
+- некоторые изменения constraints
+- сложные PostgreSQL enum изменения
+- сложные server defaults
 
-или:
-
-```python
-with session.begin():
-    session.add(user)
-```
+Всегда проверяй миграцию перед применением.
 
 ---
 
-## 47.3. Использовать один Session глобально
+# 59. Хорошая модельная база
 
-Плохо:
-
-```python
-session = SessionLocal()
-```
-
-и потом использовать её везде.
-
-Хорошо:
-
-```python
-with SessionLocal() as session:
-    ...
-```
-
-Сессия должна жить недолго.
-
-Обычно:
+Можно разделить модели по файлам.
 
 ```text
-один request в веб-приложении = одна session
+app/
+├── models/
+│   ├── __init__.py
+│   ├── user.py
+│   └── task.py
 ```
 
----
-
-## 47.4. Путать `scalars` и `execute`
-
-Если:
-
-```python
-select(User)
-```
-
-то удобно:
-
-```python
-users = session.scalars(select(User)).all()
-```
-
-Если:
-
-```python
-select(User.email, User.name)
-```
-
-то нужно:
-
-```python
-rows = session.execute(select(User.email, User.name)).all()
-```
-
----
-
-## 47.5. Не понимать `None`
-
-Если поле nullable:
-
-```python
-name: Mapped[str | None] = mapped_column(nullable=True)
-```
-
-Если поле обязательное:
-
-```python
-email: Mapped[str] = mapped_column(nullable=False)
-```
-
----
-
-# 48. Мини-шпаргалка SQLAlchemy 2
-
-## Создать объект
-
-```python
-with SessionLocal() as session:
-    with session.begin():
-        user = User(email="test@example.com")
-        session.add(user)
-```
-
-## Получить по id
-
-```python
-user = session.get(User, 1)
-```
-
-## Получить один по условию
-
-```python
-user = session.scalar(
-    select(User).where(User.email == "test@example.com")
-)
-```
-
-## Получить список
-
-```python
-users = session.scalars(
-    select(User).order_by(User.id)
-).all()
-```
-
-## Обновить
-
-```python
-with session.begin():
-    user = session.get(User, 1)
-    user.name = "New name"
-```
-
-## Удалить
-
-```python
-with session.begin():
-    user = session.get(User, 1)
-    session.delete(user)
-```
-
-## JOIN
-
-```python
-rows = session.execute(
-    select(Post, User).join(Post.author)
-).all()
-```
-
-## Загрузить связь без N+1
-
-```python
-users = session.scalars(
-    select(User).options(selectinload(User.posts))
-).all()
-```
-
----
-
-# 49. Что junior должен уверенно понимать
-
-После изучения этого материала ты должен понимать:
-
-## База
-
-- что такое таблица;
-- что такое колонка;
-- что такое primary key;
-- что такое foreign key;
-- что такое index;
-- что такое unique constraint;
-- что такое transaction.
-
-## SQLAlchemy ORM
-
-- как создать `engine`;
-- что такое `Session`;
-- что такое `Base`;
-- как описывать модели через `Mapped` и `mapped_column`;
-- как создавать записи;
-- как получать записи;
-- как обновлять записи;
-- как удалять записи;
-- как делать фильтрацию;
-- как делать сортировку;
-- как делать пагинацию.
-
-## Связи
-
-- one-to-many;
-- many-to-one;
-- many-to-many;
-- `relationship`;
-- `back_populates`;
-- `ForeignKey`;
-- `selectinload`;
-- `joinedload`;
-- проблема N+1.
-
-## PostgreSQL
-
-- UUID;
-- JSONB;
-- ARRAY;
-- Enum;
-- DateTime;
-- server_default;
-- индексы.
-
-## Alembic
-
-- зачем нужны миграции;
-- как создать миграцию;
-- как применить миграцию;
-- почему надо проверять autogenerate.
-
----
-
-# 50. Рекомендуемый стиль для SQLAlchemy 2
-
-Используй так:
-
-```python
-stmt = select(User).where(User.email == email)
-user = session.scalar(stmt)
-```
-
-А не так:
-
-```python
-user = session.query(User).filter(User.email == email).first()
-```
-
-Используй так:
-
-```python
-class User(Base):
-    id: Mapped[int] = mapped_column(primary_key=True)
-```
-
-А не старый стиль:
-
-```python
-id = Column(Integer, primary_key=True)
-```
-
-Хотя старый стиль ещё может работать, для SQLAlchemy 2 лучше использовать современный типизированный ORM.
-
----
-
-# 51. Полный минимальный пример
-
-## `app/database.py`
-
-```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
-from app.config import settings
-
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=True,
-)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    expire_on_commit=False,
-)
-```
-
-## `app/models.py`
+`app/models/user.py`:
 
 ```python
 from datetime import datetime
-from typing import List
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -3236,25 +2830,536 @@ class User(Base):
         String(255),
         unique=True,
         nullable=False,
+        index=True,
     )
 
-    name: Mapped[str | None] = mapped_column(
+    username: Mapped[str] = mapped_column(
         String(100),
-        nullable=True,
+        unique=True,
+        nullable=False,
+    )
+
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+```
+
+`app/models/task.py`:
+
+```python
+from datetime import datetime
+
+from sqlalchemy import String, Text, ForeignKey, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    description: Mapped[str | None] = mapped_column(Text)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="tasks")
+```
+
+Но нужно учитывать циклические импорты.
+
+`app/models/__init__.py`:
+
+```python
+from app.models.user import User
+from app.models.task import Task
+
+__all__ = [
+    "User",
+    "Task",
+]
+```
+
+В `alembic/env.py`:
+
+```python
+from app import models
+```
+
+или:
+
+```python
+from app.models import User, Task
+```
+
+Главное — импортировать все модели.
+
+---
+
+# 60. Типичные ошибки новичков
+
+## 60.1 Не импортировали модели в Alembic
+
+Симптом:
+
+```bash
+alembic revision --autogenerate
+```
+
+создаёт пустую миграцию.
+
+Причина:
+
+```python
+target_metadata = Base.metadata
+```
+
+есть, но модели не импортированы.
+
+Решение:
+
+```python
+from app import models
+```
+
+---
+
+## 60.2 Используешь старый синтаксис
+
+Плохо:
+
+```python
+session.query(User).filter(User.email == email).first()
+```
+
+Хорошо:
+
+```python
+stmt = select(User).where(User.email == email)
+user = session.scalar(stmt)
+```
+
+---
+
+## 60.3 Забыл `commit`
+
+```python
+session.add(user)
+```
+
+Этого недостаточно.
+
+Нужно:
+
+```python
+session.commit()
+```
+
+---
+
+## 60.4 После ошибки не сделал rollback
+
+Если commit упал:
+
+```python
+try:
+    session.commit()
+except IntegrityError:
+    session.rollback()
+```
+
+Без rollback сессия останется в ошибочном состоянии.
+
+---
+
+## 60.5 Вернул ORM-объект после закрытия session и полез в lazy relationship
+
+```python
+user = get_user()
+print(user.tasks)
+```
+
+Если `tasks` не были загружены заранее, а session уже закрыта, будет ошибка.
+
+Решение:
+
+```python
+select(User).options(selectinload(User.tasks))
+```
+
+---
+
+# 61. Async SQLAlchemy 2
+
+SQLAlchemy 2 поддерживает async.
+
+Для PostgreSQL установим:
+
+```bash
+pip install asyncpg
+```
+
+DATABASE_URL:
+
+```env
+DATABASE_URL_ASYNC=postgresql+asyncpg://app_user:app_password@localhost:5432/app_db
+```
+
+`app/async_database.py`:
+
+```python
+import os
+from dotenv import load_dotenv
+
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    async_sessionmaker,
+    AsyncSession,
+)
+
+load_dotenv()
+
+DATABASE_URL_ASYNC = os.getenv("DATABASE_URL_ASYNC")
+
+if DATABASE_URL_ASYNC is None:
+    raise RuntimeError("DATABASE_URL_ASYNC is not set")
+
+
+async_engine = create_async_engine(
+    DATABASE_URL_ASYNC,
+    echo=True,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
+```
+
+Пример запроса:
+
+```python
+from sqlalchemy import select
+
+from app.async_database import AsyncSessionLocal
+from app.models import User
+
+
+async def get_user_by_email(email: str) -> User | None:
+    async with AsyncSessionLocal() as session:
+        stmt = select(User).where(User.email == email)
+
+        result = await session.scalar(stmt)
+
+        return result
+```
+
+Создание:
+
+```python
+async def create_user(email: str, username: str, hashed_password: str) -> User:
+    async with AsyncSessionLocal() as session:
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=hashed_password,
+        )
+
+        session.add(user)
+
+        await session.commit()
+        await session.refresh(user)
+
+        return user
+```
+
+Транзакция:
+
+```python
+async def create_user_transaction():
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            user = User(
+                email="async@example.com",
+                username="async_user",
+                hashed_password="hash",
+            )
+            session.add(user)
+```
+
+Важно:
+
+> Alembic чаще настраивают через sync engine даже в async-проектах, либо используют async env.py. Для junior-уровня проще оставить Alembic sync.
+
+---
+
+# 62. Мини-шпаргалка SQLAlchemy 2
+
+## Создать объект
+
+```python
+obj = User(email="a@example.com", username="a", hashed_password="hash")
+session.add(obj)
+session.commit()
+session.refresh(obj)
+```
+
+## Получить по id
+
+```python
+user = session.get(User, user_id)
+```
+
+## Получить один по условию
+
+```python
+stmt = select(User).where(User.email == email)
+user = session.scalar(stmt)
+```
+
+## Получить список
+
+```python
+stmt = select(User).order_by(User.id)
+users = session.scalars(stmt).all()
+```
+
+## Обновить
+
+```python
+user = session.get(User, user_id)
+user.email = "new@example.com"
+session.commit()
+```
+
+## Удалить
+
+```python
+user = session.get(User, user_id)
+session.delete(user)
+session.commit()
+```
+
+## JOIN
+
+```python
+stmt = select(Task).join(Task.user).where(User.email == email)
+tasks = session.scalars(stmt).all()
+```
+
+## Загрузить связи
+
+```python
+stmt = select(User).options(selectinload(User.tasks))
+users = session.scalars(stmt).all()
+```
+
+---
+
+# 63. Мини-шпаргалка Alembic
+
+## Инициализация
+
+```bash
+alembic init alembic
+```
+
+## Новая автогенерируемая миграция
+
+```bash
+alembic revision --autogenerate -m "message"
+```
+
+## Применить миграции
+
+```bash
+alembic upgrade head
+```
+
+## Откатить одну
+
+```bash
+alembic downgrade -1
+```
+
+## Откатить всё
+
+```bash
+alembic downgrade base
+```
+
+## История
+
+```bash
+alembic history
+```
+
+## Текущая версия
+
+```bash
+alembic current
+```
+
+---
+
+# 64. Что ты должен понимать на уровне junior+
+
+После изучения этого материала ты должен уверенно понимать:
+
+- что такое SQLAlchemy ORM
+- что такое SQLAlchemy Core
+- что такое Alembic
+- зачем нужны миграции
+- как подключиться к PostgreSQL
+- как описывать модели в стиле SQLAlchemy 2
+- как использовать `Mapped` и `mapped_column`
+- как создавать таблицы через Alembic
+- как создавать, читать, обновлять и удалять данные
+- как работают `Session`, `commit`, `rollback`, `flush`
+- как делать связи `one-to-many`
+- как работают `ForeignKey` и `relationship`
+- что такое lazy loading
+- что такое проблема N+1
+- когда использовать `selectinload`
+- как создавать индексы
+- как писать constraints
+- как добавлять новые поля через миграции
+- как не потерять данные при переименовании колонок
+- почему нужно проверять autogenerated migrations
+- чем sync SQLAlchemy отличается от async SQLAlchemy
+
+---
+
+# 65. Рекомендуемый финальный вариант базовых файлов
+
+## `.env`
+
+```env
+DATABASE_URL=postgresql+psycopg://app_user:app_password@localhost:5432/app_db
+```
+
+## `app/config.py`
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL is None:
+    raise RuntimeError("DATABASE_URL is not set")
+```
+
+## `app/database.py`
+
+```python
+from sqlalchemy import MetaData, create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+from app.config import DATABASE_URL
+
+
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=convention)
+
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+)
+```
+
+## `app/models.py`
+
+```python
+from datetime import datetime
+
+from sqlalchemy import (
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    username: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False,
+    )
+
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        default=True,
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    posts: Mapped[List["Post"]] = relationship(
-        back_populates="author",
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
 
-class Post(Base):
-    __tablename__ = "posts"
+class Task(Base):
+    __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -3263,95 +3368,135 @@ class Post(Base):
         nullable=False,
     )
 
-    body: Mapped[str] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True,
+    )
+
+    is_done: Mapped[bool] = mapped_column(
+        default=False,
         nullable=False,
     )
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    author: Mapped["User"] = relationship(
-        back_populates="posts",
+    user: Mapped["User"] = relationship(
+        back_populates="tasks",
     )
 ```
 
-## `app/main.py`
+## `alembic/env.py`
 
 ```python
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from logging.config import fileConfig
 
-from app.database import Base, engine, SessionLocal
-from app.models import User, Post
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
 
+from alembic import context
 
-def create_tables() -> None:
-    Base.metadata.create_all(bind=engine)
+from dotenv import load_dotenv
+import os
 
-
-def create_data() -> None:
-    with SessionLocal() as session:
-        with session.begin():
-            user = User(
-                email="junior@example.com",
-                name="Junior",
-            )
-
-            post = Post(
-                title="Мой первый пост",
-                body="Я изучаю SQLAlchemy 2",
-                author=user,
-            )
-
-            session.add(user)
+from app.database import Base
+from app import models
 
 
-def read_data() -> None:
-    with SessionLocal() as session:
-        users = session.scalars(
-            select(User).options(selectinload(User.posts))
-        ).all()
+load_dotenv()
 
-        for user in users:
-            print(user.email)
+config = context.config
 
-            for post in user.posts:
-                print("  ", post.title)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 
-def main() -> None:
-    create_tables()
-    create_data()
-    read_data()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL is None:
+    raise RuntimeError("DATABASE_URL is not set")
 
 
-if __name__ == "__main__":
-    main()
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
+
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
 ```
 
 ---
 
-# 52. Самые важные правила
+# 66. Практическое задание для закрепления
 
-1. **Не используй `session.query` в новом коде.**
-2. **Используй `select()` из SQLAlchemy 2.**
-3. **Описывай модели через `Mapped` и `mapped_column`.**
-4. **Сессия должна жить недолго.**
-5. **Для транзакций используй `with session.begin()`.**
-6. **Для связей используй `relationship` + `ForeignKey`.**
-7. **Для one-to-many часто используй `selectinload`.**
-8. **Для many-to-one часто используй `joinedload`.**
-9. **В реальных проектах используй Alembic.**
-10. **Всегда смотри SQL через `echo=True`, пока учишься.**
+Сделай сам:
 
----
+1. Подними PostgreSQL через Docker.
+2. Создай проект.
+3. Настрой SQLAlchemy.
+4. Опиши модели:
+   - `User`
+   - `Task`
+5. Настрой Alembic.
+6. Создай первую миграцию.
+7. Примени миграцию.
+8. Напиши функции:
+   - создать пользователя
+   - получить пользователя по email
+   - создать задачу пользователю
+   - получить пользователя со всеми задачами
+   - отметить задачу выполненной
+   - удалить пользователя
+9. Добавь поле `full_name`.
+10. Сделай новую миграцию.
+11. Примени её.
+12. Добавь индекс на `(user_id, is_done)`.
+13. Сделай миграцию.
+14. Проверь SQL-запросы через `echo=True`.
 
-Если ты уверенно понимаешь всё выше, ты уже можешь работать с SQLAlchemy 2 на уровне уверенного junior/junior+.
+Если ты это сделаешь руками и поймёшь каждый шаг — у тебя уже будет крепкая база SQLAlchemy 2 + Alembic на уровне junior+.

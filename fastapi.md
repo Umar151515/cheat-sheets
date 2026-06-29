@@ -1,30 +1,43 @@
-# FastAPI + Pydantic + SQLAlchemy + PostgreSQL  
-## Полная практическая документация с нуля до уровня уверенного junior+
+# FastAPI + Pydantic + SQLAlchemy 2 + PostgreSQL с нуля до уверенного junior+
 
-Ниже мы построим полноценный backend-проект на:
+Ниже — подробная практическая документация, построенная вокруг реального проекта.
 
-- **FastAPI** — веб-фреймворк для создания API
-- **Pydantic v2** — валидация данных, схемы запросов/ответов
-- **SQLAlchemy 2.0** — ORM для работы с базой данных
-- **PostgreSQL** — настоящая реляционная база данных
-- **Alembic** — миграции базы данных
-- **Docker Compose** — запуск PostgreSQL
-- Немного затронем:
-  - структуру проекта
-  - CRUD
-  - зависимости FastAPI
-  - обработку ошибок
-  - авторизацию JWT
-  - тестирование
-  - хорошие практики
+Мы сделаем API для приложения задач:
+
+- регистрация пользователя;
+- логин;
+- JWT-авторизация;
+- получение текущего пользователя;
+- создание задач;
+- просмотр своих задач;
+- обновление задач;
+- удаление задач;
+- работа с PostgreSQL через SQLAlchemy 2;
+- валидация данных через Pydantic v2;
+- миграции через Alembic.
+
+Стек:
+
+```text
+Python 3.11+
+FastAPI
+Pydantic v2
+SQLAlchemy 2
+PostgreSQL
+Alembic
+JWT
+Docker Compose
+```
 
 ---
 
 # 1. Что такое FastAPI
 
-**FastAPI** — это Python-фреймворк для создания HTTP API.
+**FastAPI** — это современный Python-фреймворк для создания API.
 
-Пример API:
+API — это интерфейс, через который клиент, например frontend, мобильное приложение или другой сервер, общается с твоим backend.
+
+Пример:
 
 ```http
 GET /users/1
@@ -35,301 +48,207 @@ GET /users/1
 ```json
 {
   "id": 1,
-  "email": "user@example.com",
-  "name": "Alex"
+  "email": "user@example.com"
 }
 ```
 
-FastAPI позволяет быстро создавать такие эндпоинты.
+FastAPI удобен тем, что:
 
-Простейший пример:
-
-```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-@app.get("/")
-def hello():
-    return {"message": "Hello World"}
-```
-
-Запуск:
-
-```bash
-uvicorn main:app --reload
-```
-
-После запуска:
-
-```text
-http://127.0.0.1:8000
-```
-
-Документация автоматически:
-
-```text
-http://127.0.0.1:8000/docs
-```
+- автоматически валидирует входные данные;
+- автоматически генерирует Swagger-документацию;
+- использует type hints Python;
+- хорошо работает с Pydantic;
+- поддерживает асинхронность;
+- быстро работает;
+- удобно строить реальные backend-приложения.
 
 ---
 
 # 2. Что такое Pydantic
 
-**Pydantic** — библиотека для описания и проверки данных.
+**Pydantic** — библиотека для проверки и преобразования данных.
 
-Например, клиент отправляет JSON:
+Например, пользователь отправляет JSON:
 
 ```json
 {
   "email": "test@example.com",
-  "age": 20
+  "password": "123456"
 }
 ```
 
 Мы хотим проверить:
 
-- email действительно строка
-- age число
-- age больше 0
+- email действительно похож на email;
+- пароль не пустой;
+- пароль минимум 6 символов.
 
-Пример:
+Pydantic позволяет описать схему:
 
 ```python
 from pydantic import BaseModel, EmailStr, Field
 
+
 class UserCreate(BaseModel):
     email: EmailStr
-    age: int = Field(gt=0)
+    password: str = Field(min_length=6)
 ```
 
-Если клиент отправит неправильные данные, FastAPI автоматически вернёт ошибку `422`.
+Теперь FastAPI сам проверит данные. Если клиент отправит неправильный email, FastAPI вернёт ошибку `422 Unprocessable Entity`.
 
 ---
 
 # 3. Что такое SQLAlchemy
 
-**SQLAlchemy** — это библиотека для работы с базой данных.
+**SQLAlchemy** — ORM и инструмент для работы с базами данных.
 
-Есть два основных способа:
+ORM означает Object Relational Mapping.
 
-1. **Core** — писать SQL через Python-объекты
-2. **ORM** — работать с таблицами как с Python-классами
-
-Мы будем использовать **ORM**.
-
-Таблица `users` в PostgreSQL:
+То есть вместо того, чтобы постоянно писать SQL руками:
 
 ```sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR UNIQUE NOT NULL,
-    name VARCHAR NOT NULL
-);
+SELECT * FROM users WHERE id = 1;
 ```
 
-В SQLAlchemy ORM это будет выглядеть так:
+Мы можем работать с Python-объектами:
 
 ```python
-class User(Base):
-    __tablename__ = "users"
-
-    id = mapped_column(Integer, primary_key=True)
-    email = mapped_column(String, unique=True, nullable=False)
-    name = mapped_column(String, nullable=False)
+user = await session.get(User, 1)
 ```
+
+SQLAlchemy превращает Python-код в SQL-запросы.
 
 ---
 
 # 4. Что такое PostgreSQL
 
-**PostgreSQL** — это настоящая реляционная база данных.
+**PostgreSQL** — популярная реляционная база данных.
 
-Она хранит данные в таблицах.
+Реляционная база хранит данные в таблицах.
 
-Пример таблицы `users`:
+Например таблица `users`:
 
-| id | email            | name |
-| -- | ---------------- | ---- |
-| 1  | alex@example.com | Alex |
-| 2  | bob@example.com  | Bob  |
+| id | email            | hashed_password |
+|----|------------------|-----------------|
+| 1  | test@example.com | ...             |
+
+И таблица `todos`:
+
+| id | title        | completed | owner_id |
+|----|--------------|-----------|----------|
+| 1  | Learn FastAPI| false     | 1        |
 
 ---
 
 # 5. Что мы будем делать
 
-Мы создадим API для пользователей и постов.
+Мы создадим backend API:
 
-Функциональность:
+```text
+POST   /auth/register      регистрация
+POST   /auth/login         логин
+GET    /auth/me            текущий пользователь
 
-## Пользователи
-
-- создать пользователя
-- получить список пользователей
-- получить пользователя по id
-- обновить пользователя
-- удалить пользователя
-
-## Посты
-
-- создать пост
-- получить список постов
-- получить пост по id
-- обновить пост
-- удалить пост
-- связь пользователя и постов
-
-## Дополнительно
-
-- настройки через `.env`
-- PostgreSQL через Docker
-- миграции Alembic
-- Pydantic-схемы
-- Dependency Injection
-- обработка ошибок
-- JWT-авторизация
+POST   /todos              создать задачу
+GET    /todos              получить мои задачи
+GET    /todos/{todo_id}    получить одну задачу
+PATCH  /todos/{todo_id}    обновить задачу
+DELETE /todos/{todo_id}    удалить задачу
+```
 
 ---
 
-# 6. Создание проекта
+# 6. Установка проекта
 
-Создадим папку:
+Создай папку:
 
 ```bash
-mkdir fastapi_sqlalchemy_project
-cd fastapi_sqlalchemy_project
+mkdir fastapi_junior_project
+cd fastapi_junior_project
 ```
 
-Создадим виртуальное окружение:
+Создай виртуальное окружение:
 
 ```bash
 python -m venv venv
 ```
 
-Активация:
+Активируй его.
 
-## Windows
-
-```bash
-venv\Scripts\activate
-```
-
-## Linux / macOS
+Linux/macOS:
 
 ```bash
 source venv/bin/activate
+```
+
+Windows PowerShell:
+
+```bash
+venv\Scripts\Activate.ps1
 ```
 
 ---
 
 # 7. Установка зависимостей
 
-```bash
-pip install fastapi uvicorn sqlalchemy asyncpg alembic pydantic-settings python-dotenv
-```
-
-Дополнительно для email-валидации:
-
-```bash
-pip install email-validator
-```
-
-Для авторизации:
-
-```bash
-pip install passlib[bcrypt] python-jose[cryptography]
-```
-
-Для тестов:
-
-```bash
-pip install pytest httpx pytest-asyncio
-```
-
-Можно создать `requirements.txt`:
+Создай файл `requirements.txt`:
 
 ```txt
 fastapi
-uvicorn
+uvicorn[standard]
+
 sqlalchemy
 asyncpg
 alembic
+
+pydantic
 pydantic-settings
-python-dotenv
 email-validator
+
+python-dotenv
+
 passlib[bcrypt]
-python-jose[cryptography]
-pytest
-httpx
-pytest-asyncio
+PyJWT
+python-multipart
 ```
+
+Установи зависимости:
+
+```bash
+pip install -r requirements.txt
+```
+
+Зачем нужны эти библиотеки:
+
+| Библиотека | Зачем нужна |
+|---|---|
+| fastapi | сам web-фреймворк |
+| uvicorn | сервер для запуска FastAPI |
+| sqlalchemy | работа с БД |
+| asyncpg | async-драйвер PostgreSQL |
+| alembic | миграции БД |
+| pydantic | схемы и валидация |
+| pydantic-settings | настройки через `.env` |
+| email-validator | проверка email |
+| passlib[bcrypt] | хеширование паролей |
+| PyJWT | JWT-токены |
+| python-multipart | нужно для OAuth2PasswordRequestForm |
 
 ---
 
-# 8. Структура проекта
-
-Сделаем нормальную структуру:
-
-```text
-fastapi_sqlalchemy_project/
-│
-├── app/
-│   ├── main.py
-│   ├── core/
-│   │   ├── config.py
-│   │   └── security.py
-│   │
-│   ├── db/
-│   │   ├── database.py
-│   │   └── base.py
-│   │
-│   ├── models/
-│   │   ├── user.py
-│   │   └── post.py
-│   │
-│   ├── schemas/
-│   │   ├── user.py
-│   │   ├── post.py
-│   │   └── token.py
-│   │
-│   ├── crud/
-│   │   ├── user.py
-│   │   └── post.py
-│   │
-│   ├── api/
-│   │   ├── deps.py
-│   │   └── routers/
-│   │       ├── users.py
-│   │       ├── posts.py
-│   │       └── auth.py
-│   │
-│   └── __init__.py
-│
-├── alembic/
-│
-├── alembic.ini
-├── docker-compose.yml
-├── .env
-└── requirements.txt
-```
-
----
-
-# 9. Docker Compose для PostgreSQL
+# 8. Запуск PostgreSQL через Docker
 
 Создай файл `docker-compose.yml`:
 
 ```yaml
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
     container_name: fastapi_postgres
     restart: always
     environment:
-      POSTGRES_USER: fastapi_user
-      POSTGRES_PASSWORD: fastapi_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_db
     ports:
       - "5432:5432"
@@ -340,89 +259,155 @@ volumes:
   postgres_data:
 ```
 
-Запуск PostgreSQL:
+Запусти PostgreSQL:
 
 ```bash
 docker compose up -d
 ```
 
-Проверить:
+Проверь контейнеры:
 
 ```bash
 docker ps
 ```
 
-Остановить:
+---
 
-```bash
-docker compose down
+# 9. Структура проекта
+
+Сделаем такую структуру:
+
+```text
+fastapi_junior_project/
+│
+├── app/
+│   ├── main.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   └── security.py
+│   │
+│   ├── db/
+│   │   ├── base.py
+│   │   └── session.py
+│   │
+│   ├── models/
+│   │   ├── user.py
+│   │   └── todo.py
+│   │
+│   ├── schemas/
+│   │   ├── user.py
+│   │   ├── auth.py
+│   │   └── todo.py
+│   │
+│   ├── api/
+│   │   ├── deps.py
+│   │   └── routes/
+│   │       ├── auth.py
+│   │       └── todos.py
+│   │
+│   └── crud/
+│       ├── user.py
+│       └── todo.py
+│
+├── alembic/
+├── alembic.ini
+├── docker-compose.yml
+├── requirements.txt
+└── .env
 ```
 
 ---
 
-# 10. Файл `.env`
+# 10. Переменные окружения
 
 Создай `.env`:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://fastapi_user:fastapi_password@localhost:5432/fastapi_db
+APP_NAME=FastAPI Junior Project
+DEBUG=True
 
-SECRET_KEY=super-secret-key-change-me
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/fastapi_db
+
+JWT_SECRET_KEY=super-secret-key-change-me
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
-Разберём строку подключения:
+Важно:
 
 ```text
-postgresql+asyncpg://fastapi_user:fastapi_password@localhost:5432/fastapi_db
+postgresql+asyncpg://user:password@host:port/db_name
 ```
 
-| Часть | Значение |
-|---|---|
-| postgresql+asyncpg | PostgreSQL + async-драйвер |
-| fastapi_user | пользователь |
-| fastapi_password | пароль |
-| localhost | сервер |
-| 5432 | порт PostgreSQL |
-| fastapi_db | база данных |
+`+asyncpg` означает, что SQLAlchemy будет работать асинхронно через драйвер asyncpg.
 
 ---
 
-# 11. Настройки проекта через Pydantic Settings
+# 11. Настройки приложения
 
-Файл `app/core/config.py`:
+Создай файл `app/core/config.py`:
 
 ```python
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    APP_NAME: str
+    DEBUG: bool = False
+
     DATABASE_URL: str
 
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
 
 settings = Settings()
 ```
 
-Теперь в любом месте проекта можно импортировать:
+Что здесь происходит:
+
+```python
+class Settings(BaseSettings):
+```
+
+Мы создаём класс настроек. Pydantic сам прочитает переменные из `.env`.
+
+Например:
+
+```env
+DATABASE_URL=...
+```
+
+попадёт сюда:
+
+```python
+DATABASE_URL: str
+```
+
+Теперь в любом файле можно импортировать:
 
 ```python
 from app.core.config import settings
+```
 
-print(settings.DATABASE_URL)
+и использовать:
+
+```python
+settings.DATABASE_URL
 ```
 
 ---
 
-# 12. Подключение SQLAlchemy к PostgreSQL
+# 12. Подключение SQLAlchemy
 
-Файл `app/db/database.py`:
+Создай `app/db/session.py`:
 
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -432,7 +417,7 @@ from app.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,
+    echo=settings.DEBUG,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -442,42 +427,45 @@ AsyncSessionLocal = async_sessionmaker(
 )
 ```
 
-## Что здесь происходит
+Разберём подробно.
+
+## engine
 
 ```python
-create_async_engine(...)
+engine = create_async_engine(...)
 ```
 
-Создаёт подключение к базе.
+`engine` — это объект SQLAlchemy, который знает, как подключаться к базе данных.
+
+## echo
 
 ```python
-echo=True
+echo=settings.DEBUG
 ```
 
-SQLAlchemy будет показывать SQL-запросы в консоли.  
-Для обучения это полезно.
+Если `DEBUG=True`, SQLAlchemy будет показывать SQL-запросы в консоли.
+
+Это удобно при обучении.
+
+## async_sessionmaker
 
 ```python
-async_sessionmaker(...)
+AsyncSessionLocal = async_sessionmaker(...)
 ```
 
-Фабрика сессий.
+Это фабрика сессий.
 
-## Что такое Session
+Сессия — это объект, через который мы выполняем запросы:
 
-`Session` — это объект, через который мы работаем с базой:
-
-- добавить запись
-- получить запись
-- обновить
-- удалить
-- выполнить SQL-запрос
+```python
+result = await session.execute(...)
+```
 
 ---
 
-# 13. Базовый класс моделей
+# 13. Базовая модель SQLAlchemy
 
-Файл `app/db/base.py`:
+Создай `app/db/base.py`:
 
 ```python
 from sqlalchemy.orm import DeclarativeBase
@@ -487,16 +475,27 @@ class Base(DeclarativeBase):
     pass
 ```
 
-Все ORM-модели будут наследоваться от `Base`.
+Все модели SQLAlchemy будут наследоваться от `Base`.
+
+Например:
+
+```python
+class User(Base):
+    ...
+```
+
+SQLAlchemy через `Base` понимает, какие таблицы есть в проекте.
 
 ---
 
-# 14. Модель User
+# 14. Модель пользователя
 
-Файл `app/models/user.py`:
+Создай `app/models/user.py`:
 
 ```python
-from sqlalchemy import String
+from datetime import datetime
+
+from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -514,73 +513,79 @@ class User(Base):
         nullable=False,
     )
 
-    name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
-
     hashed_password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
     )
 
-    posts = relationship(
-        "Post",
-        back_populates="author",
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    todos = relationship(
+        "Todo",
+        back_populates="owner",
         cascade="all, delete-orphan",
     )
 ```
 
-## Объяснение
+Разберём.
 
 ```python
 __tablename__ = "users"
 ```
 
-Имя таблицы в базе данных.
+Имя таблицы в PostgreSQL будет `users`.
 
 ```python
 id: Mapped[int] = mapped_column(primary_key=True)
 ```
 
-Колонка `id`, первичный ключ.
+Поле `id` — первичный ключ.
 
 ```python
-email
+email: Mapped[str]
 ```
 
-Уникальный email пользователя.
+Поле email будет строкой.
 
 ```python
-hashed_password
+unique=True
 ```
 
-Мы **никогда не храним обычный пароль**.  
-Храним только хеш.
+Два пользователя не могут иметь одинаковый email.
 
 ```python
-posts = relationship(...)
+nullable=False
 ```
 
-Связь пользователя с постами.
+Поле обязательно.
 
-Один пользователь может иметь много постов.
+```python
+todos = relationship(...)
+```
+
+У пользователя может быть много задач.
 
 ---
 
-# 15. Модель Post
+# 15. Модель задачи
 
-Файл `app/models/post.py`:
+Создай `app/models/todo.py`:
 
 ```python
-from sqlalchemy import String, Text, ForeignKey
+from datetime import datetime
+
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 
-class Post(Base):
-    __tablename__ = "posts"
+class Todo(Base):
+    __tablename__ = "todos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
@@ -589,313 +594,273 @@ class Post(Base):
         nullable=False,
     )
 
-    content: Mapped[str] = mapped_column(
-        Text,
+    description: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    completed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False,
     )
 
-    author_id: Mapped[int] = mapped_column(
+    owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
-    author = relationship(
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+    )
+
+    owner = relationship(
         "User",
-        back_populates="posts",
+        back_populates="todos",
     )
 ```
 
-## Объяснение связи
+Здесь важно:
 
 ```python
-author_id = ForeignKey("users.id")
+owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 ```
 
-Каждый пост принадлежит пользователю.
+Это связь задачи с пользователем.
 
-В таблице `posts` будет колонка:
-
-```text
-author_id
-```
-
-Она указывает на `users.id`.
+Одна задача принадлежит одному пользователю.
 
 ---
 
-# 16. Чтобы Alembic видел модели
+# 16. Импорт моделей для Alembic
 
-В файле `app/db/base.py` можно импортировать модели:
+Создай или измени `app/models/__init__.py`:
 
 ```python
-from sqlalchemy.orm import DeclarativeBase
+from app.models.user import User
+from app.models.todo import Todo
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-from app.models.user import User  # noqa
-from app.models.post import Post  # noqa
-```
-
-Это нужно, чтобы Alembic увидел таблицы.
-
----
-
-# 17. Alembic: миграции базы данных
-
-## Что такое миграции
-
-Миграция — это история изменений базы данных.
-
-Например:
-
-1. Создали таблицу `users`
-2. Добавили таблицу `posts`
-3. Добавили колонку `created_at`
-4. Изменили тип поля
-
-Всё это должно быть под контролем.
-
----
-
-## Инициализация Alembic
-
-```bash
-alembic init alembic
-```
-
-Появятся:
-
-```text
-alembic/
-alembic.ini
+__all__ = ["User", "Todo"]
 ```
 
 ---
 
-## Настройка `alembic/env.py`
+# 17. Pydantic-схемы
 
-Найди в `alembic/env.py`:
+Важно понять разницу:
 
-```python
-target_metadata = None
-```
+## SQLAlchemy-модель
 
-Замени на:
+Это описание таблицы базы данных.
 
 ```python
-from app.db.base import Base
-from app.core.config import settings
-
-target_metadata = Base.metadata
-```
-
-Найди:
-
-```python
-config.set_main_option("sqlalchemy.url", ...)
-```
-
-И добавь:
-
-```python
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-```
-
-Но Alembic по умолчанию работает синхронно, а у нас URL async:
-
-```text
-postgresql+asyncpg://...
-```
-
-Для Alembic лучше использовать sync URL:
-
-В `.env` добавим:
-
-```env
-DATABASE_URL=postgresql+asyncpg://fastapi_user:fastapi_password@localhost:5432/fastapi_db
-DATABASE_SYNC_URL=postgresql://fastapi_user:fastapi_password@localhost:5432/fastapi_db
-```
-
-В `config.py`:
-
-```python
-class Settings(BaseSettings):
-    DATABASE_URL: str
-    DATABASE_SYNC_URL: str
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    model_config = SettingsConfigDict(env_file=".env")
-```
-
-В `alembic/env.py`:
-
-```python
-from app.core.config import settings
-from app.db.base import Base
-
-config.set_main_option("sqlalchemy.url", settings.DATABASE_SYNC_URL)
-
-target_metadata = Base.metadata
-```
-
-Для sync PostgreSQL драйвера нужно поставить:
-
-```bash
-pip install psycopg2-binary
-```
-
----
-
-## Создание миграции
-
-```bash
-alembic revision --autogenerate -m "create users and posts tables"
-```
-
-Применение миграции:
-
-```bash
-alembic upgrade head
-```
-
-Теперь таблицы созданы в PostgreSQL.
-
----
-
-# 18. Dependency для сессии базы данных
-
-Файл `app/api/deps.py`:
-
-```python
-from typing import AsyncGenerator
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.database import AsyncSessionLocal
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
-        yield session
-```
-
-## Что делает `yield`
-
-FastAPI вызовет функцию, получит `session`, отдаст её в endpoint, а после завершения запроса закроет сессию.
-
-Пример использования:
-
-```python
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-async def endpoint(db: AsyncSession = Depends(get_db)):
+class User(Base):
     ...
 ```
 
----
+## Pydantic-схема
 
-# 19. Pydantic-схемы пользователя
-
-Файл `app/schemas/user.py`:
+Это описание данных на входе и выходе API.
 
 ```python
+class UserCreate(BaseModel):
+    ...
+```
+
+Обычно не стоит отдавать SQLAlchemy-модель напрямую клиенту.
+
+Например, в таблице есть:
+
+```python
+hashed_password
+```
+
+Но клиенту нельзя показывать хеш пароля.
+
+Поэтому мы создаём отдельные схемы.
+
+---
+
+# 18. Схемы пользователя
+
+Создай `app/schemas/user.py`:
+
+```python
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
-class UserBase(BaseModel):
+class UserCreate(BaseModel):
     email: EmailStr
-    name: str = Field(min_length=2, max_length=100)
-
-
-class UserCreate(UserBase):
     password: str = Field(min_length=6, max_length=100)
 
 
-class UserUpdate(BaseModel):
-    email: EmailStr | None = None
-    name: str | None = Field(default=None, min_length=2, max_length=100)
-    password: str | None = Field(default=None, min_length=6, max_length=100)
-
-
-class UserRead(UserBase):
+class UserRead(BaseModel):
     id: int
+    email: EmailStr
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 ```
 
-## Очень важно
+Разберём.
 
-`UserCreate` — схема входных данных при создании пользователя.
+```python
+class UserCreate(BaseModel):
+```
+
+Эта схема используется при регистрации.
 
 Клиент отправляет:
 
 ```json
 {
-  "email": "alex@example.com",
-  "name": "Alex",
+  "email": "user@example.com",
   "password": "123456"
 }
 ```
 
-`UserRead` — схема ответа.
+```python
+EmailStr
+```
 
-Мы не возвращаем пароль:
+Проверяет, что строка похожа на email.
+
+```python
+Field(min_length=6)
+```
+
+Пароль минимум 6 символов.
+
+```python
+class UserRead(BaseModel):
+```
+
+Эта схема используется для ответа клиенту.
+
+Мы отдаём:
 
 ```json
 {
   "id": 1,
-  "email": "alex@example.com",
-  "name": "Alex"
+  "email": "user@example.com",
+  "created_at": "2025-01-01T10:00:00"
+}
+```
+
+```python
+model_config = ConfigDict(from_attributes=True)
+```
+
+Это нужно, чтобы Pydantic мог преобразовывать SQLAlchemy-объекты в JSON.
+
+---
+
+# 19. Схемы авторизации
+
+Создай `app/schemas/auth.py`:
+
+```python
+from pydantic import BaseModel
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+```
+
+Когда пользователь логинится, мы вернём:
+
+```json
+{
+  "access_token": "jwt-token-here",
+  "token_type": "bearer"
 }
 ```
 
 ---
 
-# 20. Pydantic-схемы поста
+# 20. Схемы задач
 
-Файл `app/schemas/post.py`:
+Создай `app/schemas/todo.py`:
 
 ```python
+from datetime import datetime
+
 from pydantic import BaseModel, Field, ConfigDict
 
 
-class PostBase(BaseModel):
-    title: str = Field(min_length=3, max_length=200)
-    content: str = Field(min_length=1)
+class TodoCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
 
 
-class PostCreate(PostBase):
-    pass
+class TodoUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
+    completed: bool | None = None
 
 
-class PostUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=3, max_length=200)
-    content: str | None = Field(default=None, min_length=1)
-
-
-class PostRead(PostBase):
+class TodoRead(BaseModel):
     id: int
-    author_id: int
+    title: str
+    description: str | None
+    completed: bool
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 ```
 
+Разница:
+
+## TodoCreate
+
+Используется при создании задачи.
+
+```json
+{
+  "title": "Learn FastAPI",
+  "description": "Read docs and build project"
+}
+```
+
+## TodoUpdate
+
+Используется при частичном обновлении.
+
+Например можно отправить только:
+
+```json
+{
+  "completed": true
+}
+```
+
+## TodoRead
+
+Используется для ответа клиенту.
+
 ---
 
-# 21. Безопасность: хеширование паролей
+# 21. Безопасность: хеширование паролей и JWT
 
-Файл `app/core/security.py`:
+Создай `app/core/security.py`:
 
 ```python
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -915,518 +880,968 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-
+def create_access_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode.update({"exp": expire})
+    payload = {
+        "sub": subject,
+        "exp": expire,
+    }
 
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+    token = jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
     )
 
-    return encoded_jwt
+    return token
+
+
+def decode_access_token(token: str) -> dict:
+    payload = jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+
+    return payload
 ```
+
+Разберём.
+
+## Почему нельзя хранить пароль как есть
+
+Плохо:
+
+```text
+password = "123456"
+```
+
+Если базу украдут, все пароли станут известны.
+
+Правильно:
+
+```text
+hashed_password = "$2b$12$..."
+```
+
+Хеш нельзя просто так превратить обратно в пароль.
+
+## JWT
+
+JWT — это токен, который клиент хранит у себя и отправляет на защищённые эндпоинты.
+
+Пример заголовка:
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+Внутри токена мы храним:
+
+```json
+{
+  "sub": "1",
+  "exp": "..."
+}
+```
+
+`sub` — subject, то есть идентификатор пользователя.
 
 ---
 
-# 22. CRUD для пользователей
+# 22. Dependency для сессии БД
 
-Файл `app/crud/user.py`:
+Создай `app/api/deps.py`:
+
+```python
+from typing import AsyncGenerator
+
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import decode_access_token
+from app.db.session import AsyncSessionLocal
+from app.models.user import User
+from app.crud.user import get_user_by_id
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+
+        if user_id is None:
+            raise credentials_exception
+
+    except jwt.PyJWTError:
+        raise credentials_exception
+
+    user = await get_user_by_id(session, int(user_id))
+
+    if user is None:
+        raise credentials_exception
+
+    return user
+```
+
+Разберём.
+
+## Depends
+
+```python
+session: AsyncSession = Depends(get_db_session)
+```
+
+FastAPI сам вызовет функцию `get_db_session`, получит сессию и передаст её в эндпоинт.
+
+Это называется dependency injection.
+
+## get_current_user
+
+Эта функция:
+
+1. получает токен из заголовка `Authorization`;
+2. расшифровывает JWT;
+3. достаёт `user_id`;
+4. ищет пользователя в базе;
+5. возвращает пользователя.
+
+Если токен неправильный — ошибка `401`.
+
+---
+
+# 23. CRUD для пользователя
+
+Создай `app/crud/user.py`:
 
 ```python
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import hash_password, verify_password
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
-from app.core.security import hash_password
+from app.schemas.user import UserCreate
 
 
-async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+async def get_user_by_id(
+    session: AsyncSession,
+    user_id: int,
+) -> User | None:
+    return await session.get(User, user_id)
+
+
+async def get_user_by_email(
+    session: AsyncSession,
+    email: str,
+) -> User | None:
+    stmt = select(User).where(User.email == email)
+    result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(
-        select(User).where(User.email == email)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_users(
-    db: AsyncSession,
-    skip: int = 0,
-    limit: int = 100,
-) -> list[User]:
-    result = await db.execute(
-        select(User)
-        .offset(skip)
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
-async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
+async def create_user(
+    session: AsyncSession,
+    user_in: UserCreate,
+) -> User:
     user = User(
         email=user_in.email,
-        name=user_in.name,
         hashed_password=hash_password(user_in.password),
     )
 
-    db.add(user)
-
-    await db.commit()
-    await db.refresh(user)
-
-    return user
-
-
-async def update_user(
-    db: AsyncSession,
-    user: User,
-    user_in: UserUpdate,
-) -> User:
-    update_data = user_in.model_dump(exclude_unset=True)
-
-    if "password" in update_data:
-        password = update_data.pop("password")
-        update_data["hashed_password"] = hash_password(password)
-
-    for field, value in update_data.items():
-        setattr(user, field, value)
-
-    await db.commit()
-    await db.refresh(user)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
 
     return user
 
 
-async def delete_user(db: AsyncSession, user: User) -> None:
-    await db.delete(user)
-    await db.commit()
+async def authenticate_user(
+    session: AsyncSession,
+    email: str,
+    password: str,
+) -> User | None:
+    user = await get_user_by_email(session, email)
+
+    if user is None:
+        return None
+
+    if not verify_password(password, user.hashed_password):
+        return None
+
+    return user
 ```
 
-## Важные моменты
+Разберём.
+
+## select
 
 ```python
-select(User).where(User.id == user_id)
+stmt = select(User).where(User.email == email)
 ```
 
-SQL-запрос:
+Это SQLAlchemy-запрос.
+
+Примерно он превратится в SQL:
 
 ```sql
-SELECT * FROM users WHERE id = ...
+SELECT * FROM users WHERE email = '...';
 ```
+
+## scalar_one_or_none
 
 ```python
-db.add(user)
+return result.scalar_one_or_none()
 ```
 
-Добавляем объект в сессию.
+Возвращает:
 
-```python
-await db.commit()
-```
-
-Сохраняем изменения в базе.
-
-```python
-await db.refresh(user)
-```
-
-Обновляем объект данными из базы, например получаем `id`.
+- один объект, если найден;
+- `None`, если не найден;
+- ошибку, если найдено больше одного объекта.
 
 ---
 
-# 23. CRUD для постов
+# 24. CRUD для задач
 
-Файл `app/crud/post.py`:
+Создай `app/crud/todo.py`:
 
 ```python
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.post import Post
-from app.schemas.post import PostCreate, PostUpdate
+from app.models.todo import Todo
+from app.schemas.todo import TodoCreate, TodoUpdate
 
 
-async def get_post_by_id(db: AsyncSession, post_id: int) -> Post | None:
-    result = await db.execute(
-        select(Post).where(Post.id == post_id)
+async def create_todo(
+    session: AsyncSession,
+    todo_in: TodoCreate,
+    owner_id: int,
+) -> Todo:
+    todo = Todo(
+        title=todo_in.title,
+        description=todo_in.description,
+        owner_id=owner_id,
     )
+
+    session.add(todo)
+    await session.commit()
+    await session.refresh(todo)
+
+    return todo
+
+
+async def get_todo_by_id(
+    session: AsyncSession,
+    todo_id: int,
+    owner_id: int,
+) -> Todo | None:
+    stmt = (
+        select(Todo)
+        .where(Todo.id == todo_id)
+        .where(Todo.owner_id == owner_id)
+    )
+
+    result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_posts(
-    db: AsyncSession,
+async def get_todos(
+    session: AsyncSession,
+    owner_id: int,
     skip: int = 0,
-    limit: int = 100,
-) -> list[Post]:
-    result = await db.execute(
-        select(Post)
+    limit: int = 20,
+) -> list[Todo]:
+    stmt = (
+        select(Todo)
+        .where(Todo.owner_id == owner_id)
         .offset(skip)
         .limit(limit)
+        .order_by(Todo.id.desc())
     )
+
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def create_post(
-    db: AsyncSession,
-    post_in: PostCreate,
-    author_id: int,
-) -> Post:
-    post = Post(
-        title=post_in.title,
-        content=post_in.content,
-        author_id=author_id,
-    )
-
-    db.add(post)
-    await db.commit()
-    await db.refresh(post)
-
-    return post
-
-
-async def update_post(
-    db: AsyncSession,
-    post: Post,
-    post_in: PostUpdate,
-) -> Post:
-    update_data = post_in.model_dump(exclude_unset=True)
+async def update_todo(
+    session: AsyncSession,
+    todo: Todo,
+    todo_in: TodoUpdate,
+) -> Todo:
+    update_data = todo_in.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
-        setattr(post, field, value)
+        setattr(todo, field, value)
 
-    await db.commit()
-    await db.refresh(post)
+    await session.commit()
+    await session.refresh(todo)
 
-    return post
+    return todo
 
 
-async def delete_post(db: AsyncSession, post: Post) -> None:
-    await db.delete(post)
-    await db.commit()
+async def delete_todo(
+    session: AsyncSession,
+    todo: Todo,
+) -> None:
+    await session.delete(todo)
+    await session.commit()
 ```
+
+Разберём важное.
+
+## Защита доступа
+
+```python
+.where(Todo.owner_id == owner_id)
+```
+
+Мы получаем только задачи текущего пользователя.
+
+Иначе пользователь мог бы посмотреть чужую задачу по ID.
+
+## Частичное обновление
+
+```python
+todo_in.model_dump(exclude_unset=True)
+```
+
+Если клиент отправил:
+
+```json
+{
+  "completed": true
+}
+```
+
+то мы обновим только поле `completed`.
 
 ---
 
-# 24. Роутер пользователей
+# 25. Роуты авторизации
 
-Файл `app/api/routers/users.py`:
+Создай `app/api/routes/auth.py`:
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
-from app.crud import user as user_crud
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.api.deps import get_db_session, get_current_user
+from app.core.security import create_access_token
+from app.crud.user import create_user, get_user_by_email, authenticate_user
+from app.models.user import User
+from app.schemas.auth import Token
+from app.schemas.user import UserCreate, UserRead
 
 
-router = APIRouter(
-    prefix="/users",
-    tags=["Users"],
-)
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post(
-    "",
+    "/register",
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_user(
+async def register(
     user_in: UserCreate,
-    db: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    existing_user = await user_crud.get_user_by_email(db, user_in.email)
+    existing_user = await get_user_by_email(session, user_in.email)
 
-    if existing_user:
+    if existing_user is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this email already exists",
         )
 
-    user = await user_crud.create_user(db, user_in)
+    user = await create_user(session, user_in)
 
     return user
 
 
-@router.get(
-    "",
-    response_model=list[UserRead],
+@router.post(
+    "/login",
+    response_model=Token,
 )
-async def read_users(
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db),
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    users = await user_crud.get_users(db, skip=skip, limit=limit)
-    return users
+    user = await authenticate_user(
+        session=session,
+        email=form_data.username,
+        password=form_data.password,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(subject=str(user.id))
+
+    return Token(access_token=access_token)
 
 
 @router.get(
-    "/{user_id}",
+    "/me",
     response_model=UserRead,
 )
-async def read_user(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
+async def get_me(
+    current_user: User = Depends(get_current_user),
 ):
-    user = await user_crud.get_user_by_id(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    return user
-
-
-@router.patch(
-    "/{user_id}",
-    response_model=UserRead,
-)
-async def update_user(
-    user_id: int,
-    user_in: UserUpdate,
-    db: AsyncSession = Depends(get_db),
-):
-    user = await user_crud.get_user_by_id(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    updated_user = await user_crud.update_user(db, user, user_in)
-
-    return updated_user
-
-
-@router.delete(
-    "/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_user(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    user = await user_crud.get_user_by_id(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    await user_crud.delete_user(db, user)
-
-    return None
+    return current_user
 ```
+
+Важно.
+
+## Почему login использует username
+
+`OAuth2PasswordRequestForm` стандартно отправляет поля:
+
+```text
+username
+password
+```
+
+Мы используем email как username.
+
+В Swagger будет форма, где в поле `username` нужно ввести email.
 
 ---
 
-# 25. Роутер постов
+# 26. Роуты задач
 
-Файл `app/api/routers/posts.py`:
+Создай `app/api/routes/todos.py`:
 
 ```python
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
-from app.crud import post as post_crud
-from app.crud import user as user_crud
-from app.schemas.post import PostCreate, PostRead, PostUpdate
-
-
-router = APIRouter(
-    prefix="/posts",
-    tags=["Posts"],
+from app.api.deps import get_db_session, get_current_user
+from app.crud.todo import (
+    create_todo,
+    get_todo_by_id,
+    get_todos,
+    update_todo,
+    delete_todo,
 )
+from app.models.user import User
+from app.schemas.todo import TodoCreate, TodoRead, TodoUpdate
+
+
+router = APIRouter(prefix="/todos", tags=["Todos"])
 
 
 @router.post(
     "",
-    response_model=PostRead,
+    response_model=TodoRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_post(
-    author_id: int,
-    post_in: PostCreate,
-    db: AsyncSession = Depends(get_db),
+async def create_my_todo(
+    todo_in: TodoCreate,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    author = await user_crud.get_user_by_id(db, author_id)
-
-    if not author:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Author not found",
-        )
-
-    post = await post_crud.create_post(
-        db=db,
-        post_in=post_in,
-        author_id=author_id,
+    todo = await create_todo(
+        session=session,
+        todo_in=todo_in,
+        owner_id=current_user.id,
     )
 
-    return post
+    return todo
 
 
 @router.get(
     "",
-    response_model=list[PostRead],
+    response_model=list[TodoRead],
 )
-async def read_posts(
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db),
+async def read_my_todos(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    posts = await post_crud.get_posts(db, skip=skip, limit=limit)
-    return posts
+    todos = await get_todos(
+        session=session,
+        owner_id=current_user.id,
+        skip=skip,
+        limit=limit,
+    )
+
+    return todos
 
 
 @router.get(
-    "/{post_id}",
-    response_model=PostRead,
+    "/{todo_id}",
+    response_model=TodoRead,
 )
-async def read_post(
-    post_id: int,
-    db: AsyncSession = Depends(get_db),
+async def read_my_todo(
+    todo_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    post = await post_crud.get_post_by_id(db, post_id)
+    todo = await get_todo_by_id(
+        session=session,
+        todo_id=todo_id,
+        owner_id=current_user.id,
+    )
 
-    if not post:
+    if todo is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
+            detail="Todo not found",
         )
 
-    return post
+    return todo
 
 
 @router.patch(
-    "/{post_id}",
-    response_model=PostRead,
+    "/{todo_id}",
+    response_model=TodoRead,
 )
-async def update_post(
-    post_id: int,
-    post_in: PostUpdate,
-    db: AsyncSession = Depends(get_db),
+async def update_my_todo(
+    todo_id: int,
+    todo_in: TodoUpdate,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    post = await post_crud.get_post_by_id(db, post_id)
+    todo = await get_todo_by_id(
+        session=session,
+        todo_id=todo_id,
+        owner_id=current_user.id,
+    )
 
-    if not post:
+    if todo is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
+            detail="Todo not found",
         )
 
-    updated_post = await post_crud.update_post(db, post, post_in)
+    updated_todo = await update_todo(
+        session=session,
+        todo=todo,
+        todo_in=todo_in,
+    )
 
-    return updated_post
+    return updated_todo
 
 
 @router.delete(
-    "/{post_id}",
+    "/{todo_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_post(
-    post_id: int,
-    db: AsyncSession = Depends(get_db),
+async def delete_my_todo(
+    todo_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    post = await post_crud.get_post_by_id(db, post_id)
+    todo = await get_todo_by_id(
+        session=session,
+        todo_id=todo_id,
+        owner_id=current_user.id,
+    )
 
-    if not post:
+    if todo is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
+            detail="Todo not found",
         )
 
-    await post_crud.delete_post(db, post)
+    await delete_todo(session=session, todo=todo)
 
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 ```
 
 ---
 
-# 26. Главный файл приложения
+# 27. Главный файл приложения
 
-Файл `app/main.py`:
+Создай `app/main.py`:
 
 ```python
 from fastapi import FastAPI
 
-from app.api.routers import users, posts
+from app.api.routes.auth import router as auth_router
+from app.api.routes.todos import router as todos_router
+from app.core.config import settings
 
 
 app = FastAPI(
-    title="FastAPI SQLAlchemy PostgreSQL Project",
-    description="Учебный backend-проект на FastAPI",
-    version="1.0.0",
+    title=settings.APP_NAME,
+    debug=settings.DEBUG,
 )
 
 
 @app.get("/")
 async def root():
     return {
-        "message": "API is running"
+        "message": "FastAPI Junior Project is running"
     }
 
 
-app.include_router(users.router)
-app.include_router(posts.router)
+app.include_router(auth_router)
+app.include_router(todos_router)
 ```
 
-Запуск:
+---
+
+# 28. Запуск приложения
+
+Запусти сервер:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Документация:
+Открой:
+
+```text
+http://127.0.0.1:8000
+```
+
+Swagger-документация:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
+ReDoc:
+
+```text
+http://127.0.0.1:8000/redoc
+```
+
 ---
 
-# 27. Что такое endpoint
+# 29. Миграции Alembic
 
-Endpoint — это конкретный URL + HTTP-метод.
+Сейчас у нас есть модели SQLAlchemy, но таблицы в базе ещё не созданы.
 
-Например:
+Для этого нужен Alembic.
+
+Инициализируй Alembic:
+
+```bash
+alembic init alembic
+```
+
+Появятся:
+
+```text
+alembic/
+alembic.ini
+```
+
+---
+
+## 29.1. Настрой alembic/env.py
+
+Открой `alembic/env.py`.
+
+Импортируй настройки, Base и модели.
+
+Пример рабочего `env.py`:
 
 ```python
-@router.get("/users")
-async def read_users():
-    ...
+from logging.config import fileConfig
+
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
+
+from app.core.config import settings
+from app.db.base import Base
+from app.models import User, Todo
+
+
+config = context.config
+
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
+
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -> None:
+    configuration = config.get_section(config.config_ini_section)
+
+    connectable = async_engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    import asyncio
+
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
 ```
 
-Это endpoint:
+Почему импортируем модели:
 
-```http
-GET /users
+```python
+from app.models import User, Todo
+```
+
+Alembic должен увидеть модели, чтобы создать таблицы.
+
+---
+
+## 29.2. Создание миграции
+
+Выполни:
+
+```bash
+alembic revision --autogenerate -m "create users and todos tables"
+```
+
+Alembic создаст файл в:
+
+```text
+alembic/versions/
 ```
 
 ---
 
-# 28. HTTP-методы
+## 29.3. Применение миграции
 
-| Метод | Для чего |
+```bash
+alembic upgrade head
+```
+
+После этого в PostgreSQL появятся таблицы:
+
+```text
+users
+todos
+alembic_version
+```
+
+---
+
+# 30. Проверка API через Swagger
+
+Открой:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## 30.1. Регистрация
+
+Endpoint:
+
+```http
+POST /auth/register
+```
+
+Body:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "123456"
+}
+```
+
+Ответ:
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "created_at": "2025-01-01T12:00:00.000Z"
+}
+```
+
+---
+
+## 30.2. Логин
+
+Endpoint:
+
+```http
+POST /auth/login
+```
+
+В Swagger нажми `Try it out`.
+
+Введи:
+
+```text
+username: user@example.com
+password: 123456
+```
+
+Ответ:
+
+```json
+{
+  "access_token": "...",
+  "token_type": "bearer"
+}
+```
+
+---
+
+## 30.3. Авторизация в Swagger
+
+Нажми кнопку `Authorize`.
+
+Вставь:
+
+```text
+Bearer твой_токен
+```
+
+Иногда Swagger сам добавляет `Bearer`, тогда нужно вставить только токен.
+
+---
+
+## 30.4. Получение текущего пользователя
+
+```http
+GET /auth/me
+```
+
+Если токен правильный:
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "created_at": "..."
+}
+```
+
+---
+
+## 30.5. Создание задачи
+
+```http
+POST /todos
+```
+
+Body:
+
+```json
+{
+  "title": "Learn FastAPI",
+  "description": "Build real API project"
+}
+```
+
+Ответ:
+
+```json
+{
+  "id": 1,
+  "title": "Learn FastAPI",
+  "description": "Build real API project",
+  "completed": false,
+  "owner_id": 1,
+  "created_at": "...",
+  "updated_at": null
+}
+```
+
+---
+
+# 31. Главные концепции FastAPI
+
+## 31.1. Endpoint
+
+Endpoint — это функция, которая обрабатывает HTTP-запрос.
+
+```python
+@app.get("/")
+async def root():
+    return {"message": "Hello"}
+```
+
+Здесь:
+
+```python
+@app.get("/")
+```
+
+означает:
+
+```text
+GET /
+```
+
+---
+
+## 31.2. HTTP-методы
+
+| Метод | Назначение |
 |---|---|
 | GET | получить данные |
 | POST | создать данные |
@@ -1434,42 +1849,108 @@ GET /users
 | PATCH | частично обновить данные |
 | DELETE | удалить данные |
 
-Примеры:
+---
+
+## 31.3. Path parameters
+
+```python
+@app.get("/users/{user_id}")
+async def get_user(user_id: int):
+    return {"user_id": user_id}
+```
+
+Запрос:
 
 ```http
-GET /users
-POST /users
-GET /users/1
-PATCH /users/1
-DELETE /users/1
+GET /users/5
+```
+
+FastAPI передаст:
+
+```python
+user_id = 5
+```
+
+Если отправить:
+
+```http
+GET /users/abc
+```
+
+будет ошибка, потому что `user_id: int`.
+
+---
+
+## 31.4. Query parameters
+
+```python
+@app.get("/todos")
+async def get_todos(skip: int = 0, limit: int = 20):
+    return {"skip": skip, "limit": limit}
+```
+
+Запрос:
+
+```http
+GET /todos?skip=10&limit=5
 ```
 
 ---
 
-# 29. HTTP-статусы
-
-| Статус | Значение |
-|---|---|
-| 200 | успешно |
-| 201 | создано |
-| 204 | успешно, без тела ответа |
-| 400 | плохой запрос |
-| 401 | не авторизован |
-| 403 | запрещено |
-| 404 | не найдено |
-| 422 | ошибка валидации |
-| 500 | ошибка сервера |
-
-Пример:
+## 31.5. Request body
 
 ```python
+from pydantic import BaseModel
+
+
+class TodoCreate(BaseModel):
+    title: str
+
+
+@app.post("/todos")
+async def create_todo(todo: TodoCreate):
+    return todo
+```
+
+Клиент отправляет JSON:
+
+```json
+{
+  "title": "Learn FastAPI"
+}
+```
+
+---
+
+## 31.6. Response model
+
+```python
+@app.get("/users/{user_id}", response_model=UserRead)
+async def get_user(user_id: int):
+    return user
+```
+
+`response_model` говорит FastAPI:
+
+1. какие поля вернуть клиенту;
+2. как преобразовать данные;
+3. что показать в Swagger.
+
+---
+
+## 31.7. HTTPException
+
+```python
+from fastapi import HTTPException
+
+
 raise HTTPException(
     status_code=404,
     detail="User not found",
 )
 ```
 
-Ответ:
+FastAPI вернёт:
 
 ```json
 {
@@ -1479,683 +1960,530 @@ raise HTTPException(
 
 ---
 
-# 30. Query, Path и Body параметры
+# 32. Главные концепции Pydantic
 
-## Path parameter
-
-```python
-@router.get("/users/{user_id}")
-async def get_user(user_id: int):
-    ...
-```
-
-Запрос:
-
-```http
-GET /users/5
-```
-
-`user_id = 5`
-
----
-
-## Query parameter
-
-```python
-@router.get("/users")
-async def get_users(skip: int = 0, limit: int = 100):
-    ...
-```
-
-Запрос:
-
-```http
-GET /users?skip=10&limit=20
-```
-
----
-
-## Body parameter
-
-```python
-@router.post("/users")
-async def create_user(user_in: UserCreate):
-    ...
-```
-
-Тело запроса:
-
-```json
-{
-  "email": "alex@example.com",
-  "name": "Alex",
-  "password": "123456"
-}
-```
-
----
-
-# 31. Dependency Injection в FastAPI
-
-Dependency — это функция, которую FastAPI вызывает автоматически.
-
-Пример:
-
-```python
-async def get_db():
-    ...
-```
-
-Использование:
-
-```python
-db: AsyncSession = Depends(get_db)
-```
-
-FastAPI:
-
-1. вызывает `get_db`
-2. получает сессию
-3. передаёт её в endpoint
-4. после запроса закрывает сессию
-
-Это удобно для:
-
-- базы данных
-- текущего пользователя
-- проверки прав
-- подключения настроек
-
----
-
-# 32. Подробно про Pydantic
-
-## Базовая модель
+## 32.1. BaseModel
 
 ```python
 from pydantic import BaseModel
+
 
 class Product(BaseModel):
     title: str
     price: float
 ```
 
-Правильные данные:
+Pydantic проверит:
 
-```python
-Product(title="Phone", price=1000)
+```json
+{
+  "title": "Phone",
+  "price": 999.99
+}
 ```
-
-Неправильные данные:
-
-```python
-Product(title="Phone", price="abc")
-```
-
-Будет ошибка валидации.
 
 ---
 
-## Field
+## 32.2. Field
 
 ```python
 from pydantic import Field
 
+
 class Product(BaseModel):
-    title: str = Field(min_length=3, max_length=100)
+    title: str = Field(min_length=2, max_length=100)
     price: float = Field(gt=0)
 ```
 
-Ограничения:
-
-| Параметр | Значение |
-|---|---|
-| min_length | минимальная длина строки |
-| max_length | максимальная длина строки |
-| gt | больше чем |
-| ge | больше или равно |
-| lt | меньше чем |
-| le | меньше или равно |
+`gt=0` значит greater than 0.
 
 ---
 
-## Optional поля
+## 32.3. Optional поля
+
+В Python 3.10+:
 
 ```python
-class UserUpdate(BaseModel):
-    name: str | None = None
+description: str | None = None
 ```
 
 Это значит:
 
-- поле можно не передавать
-- если передали, оно должно быть строкой или `null`
+- может быть строкой;
+- может быть `None`.
 
 ---
 
-## model_dump
+## 32.4. model_dump
 
 ```python
-data = user_in.model_dump()
+data = schema.model_dump()
 ```
 
-Преобразует Pydantic-модель в словарь.
+Превращает Pydantic-модель в словарь.
 
 Пример:
 
 ```python
-UserCreate(
-    email="a@example.com",
-    name="Alex",
-    password="123456"
-).model_dump()
+todo_in.model_dump()
 ```
 
 Результат:
 
 ```python
 {
-    "email": "a@example.com",
-    "name": "Alex",
-    "password": "123456"
+    "title": "Learn FastAPI",
+    "description": "..."
 }
 ```
 
 ---
 
-## exclude_unset=True
-
-Очень важно для PATCH:
+## 32.5. exclude_unset
 
 ```python
-update_data = user_in.model_dump(exclude_unset=True)
+todo_in.model_dump(exclude_unset=True)
 ```
 
-Если клиент отправил:
+Если клиент отправил только:
 
 ```json
 {
-  "name": "New name"
+  "completed": true
 }
 ```
 
-То будет:
+то получим:
 
 ```python
 {
-  "name": "New name"
+    "completed": True
 }
 ```
 
-А не:
+Это полезно для PATCH.
+
+---
+
+# 33. Главные концепции SQLAlchemy 2
+
+## 33.1. Модель
 
 ```python
-{
-  "email": None,
-  "name": "New name",
-  "password": None
-}
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255))
+```
+
+Это описание таблицы.
+
+---
+
+## 33.2. Добавление записи
+
+```python
+user = User(email="test@example.com", hashed_password="...")
+
+session.add(user)
+await session.commit()
+await session.refresh(user)
+```
+
+Что происходит:
+
+```python
+session.add(user)
+```
+
+говорит SQLAlchemy: этот объект нужно сохранить.
+
+```python
+await session.commit()
+```
+
+отправляет изменения в базу.
+
+```python
+await session.refresh(user)
+```
+
+обновляет объект из базы, например получает `id`.
+
+---
+
+## 33.3. Получение по primary key
+
+```python
+user = await session.get(User, 1)
 ```
 
 ---
 
-## from_attributes=True
+## 33.4. SELECT
 
 ```python
-model_config = ConfigDict(from_attributes=True)
-```
-
-Нужно, чтобы Pydantic мог превращать SQLAlchemy-объект в JSON.
-
-SQLAlchemy объект:
-
-```python
-user.email
-user.name
-```
-
-Pydantic сможет прочитать эти атрибуты.
-
----
-
-# 33. Авторизация JWT
-
-Сейчас у нас можно создавать пользователей, но нет логина.
-
-Добавим:
-
-- `/auth/login`
-- получение токена
-- dependency `get_current_user`
-- создание поста от текущего пользователя
-
----
-
-## Схема токена
-
-Файл `app/schemas/token.py`:
-
-```python
-from pydantic import BaseModel
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+stmt = select(User).where(User.email == email)
+result = await session.execute(stmt)
+user = result.scalar_one_or_none()
 ```
 
 ---
 
-## Dependency текущего пользователя
-
-Обновим `app/api/deps.py`:
+## 33.5. Обновление
 
 ```python
-from typing import AsyncGenerator
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.config import settings
-from app.db.database import AsyncSessionLocal
-from app.crud.user import get_user_by_id
-from app.models.user import User
-
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
-        yield session
-
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-
-        user_id: str | None = payload.get("sub")
-
-        if user_id is None:
-            raise credentials_exception
-
-    except JWTError:
-        raise credentials_exception
-
-    user = await get_user_by_id(db, int(user_id))
-
-    if user is None:
-        raise credentials_exception
-
-    return user
+user.email = "new@example.com"
+await session.commit()
+await session.refresh(user)
 ```
 
 ---
 
-## Роутер авторизации
-
-Файл `app/api/routers/auth.py`:
+## 33.6. Удаление
 
 ```python
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
+await session.delete(user)
+await session.commit()
+```
 
-from app.api.deps import get_db
-from app.crud.user import get_user_by_email
-from app.core.security import verify_password, create_access_token
-from app.schemas.token import Token
+---
 
+# 34. Частые ошибки новичков
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["Auth"],
+## Ошибка 1. Забыли await
+
+Неправильно:
+
+```python
+session.commit()
+```
+
+Правильно:
+
+```python
+await session.commit()
+```
+
+Если работаешь с async SQLAlchemy, почти все операции с БД требуют `await`.
+
+---
+
+## Ошибка 2. Отдаёшь пароль клиенту
+
+Плохо:
+
+```python
+response_model=User
+```
+
+Лучше:
+
+```python
+response_model=UserRead
+```
+
+В `UserRead` нет `hashed_password`.
+
+---
+
+## Ошибка 3. Не проверяешь владельца ресурса
+
+Плохо:
+
+```python
+todo = await session.get(Todo, todo_id)
+```
+
+Так пользователь может получить чужую задачу.
+
+Лучше:
+
+```python
+select(Todo).where(
+    Todo.id == todo_id,
+    Todo.owner_id == current_user.id,
 )
-
-
-@router.post(
-    "/login",
-    response_model=Token,
-)
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
-):
-    user = await get_user_by_email(db, form_data.username)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
-
-    if not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
-
-    access_token = create_access_token(
-        data={"sub": str(user.id)}
-    )
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-    }
-```
-
-Важно: `OAuth2PasswordRequestForm` ожидает поля:
-
-```text
-username
-password
-```
-
-Даже если у нас email, мы передаём email в поле `username`.
-
----
-
-## Подключаем auth router
-
-В `app/main.py`:
-
-```python
-from fastapi import FastAPI
-
-from app.api.routers import users, posts, auth
-
-
-app = FastAPI(
-    title="FastAPI SQLAlchemy PostgreSQL Project",
-    version="1.0.0",
-)
-
-
-@app.get("/")
-async def root():
-    return {"message": "API is running"}
-
-
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(posts.router)
 ```
 
 ---
 
-# 34. Создание поста только авторизованным пользователем
+## Ошибка 4. Не используешь миграции
 
-Обновим endpoint создания поста.
+Плохо вручную создавать таблицы.
 
-Файл `app/api/routers/posts.py`:
-
-```python
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.api.deps import get_db, get_current_user
-from app.crud import post as post_crud
-from app.models.user import User
-from app.schemas.post import PostCreate, PostRead, PostUpdate
-
-
-router = APIRouter(
-    prefix="/posts",
-    tags=["Posts"],
-)
-
-
-@router.post(
-    "",
-    response_model=PostRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_post(
-    post_in: PostCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    post = await post_crud.create_post(
-        db=db,
-        post_in=post_in,
-        author_id=current_user.id,
-    )
-
-    return post
-```
-
-Теперь для создания поста нужен токен.
-
----
-
-# 35. Как пользоваться авторизацией в Swagger
-
-1. Создай пользователя:
-
-```http
-POST /users
-```
-
-```json
-{
-  "email": "alex@example.com",
-  "name": "Alex",
-  "password": "123456"
-}
-```
-
-2. Открой `/docs`
-
-3. Найди `/auth/login`
-
-4. Нажми `Try it out`
-
-5. Введи:
-
-```text
-username: alex@example.com
-password: 123456
-```
-
-6. Получишь token
-
-7. Вверху нажми кнопку **Authorize**
-
-8. Вставь токен
-
-Теперь защищённые эндпоинты будут работать.
-
----
-
-# 36. Частые ошибки
-
-## 1. ModuleNotFoundError: No module named app
-
-Запускай из корня проекта:
+Правильно использовать Alembic:
 
 ```bash
-uvicorn app.main:app --reload
-```
-
-Не из папки `app`.
-
----
-
-## 2. Таблицы не создаются
-
-Проверь:
-
-- импортированы ли модели в `app/db/base.py`
-- правильно ли настроен Alembic
-- применил ли миграцию:
-
-```bash
+alembic revision --autogenerate -m "message"
 alembic upgrade head
 ```
 
 ---
 
-## 3. Ошибка asyncpg
-
-Проверь, что URL:
-
-```env
-DATABASE_URL=postgresql+asyncpg://...
-```
-
-А не:
-
-```env
-postgresql://...
-```
-
----
-
-## 4. Ошибка psycopg2 при Alembic
-
-Для Alembic sync URL нужен драйвер:
-
-```bash
-pip install psycopg2-binary
-```
-
----
-
-## 5. 422 Unprocessable Entity
-
-Это ошибка валидации.
-
-Например, схема требует:
-
-```json
-{
-  "email": "test@example.com",
-  "name": "Alex",
-  "password": "123456"
-}
-```
-
-А ты отправил:
-
-```json
-{
-  "email": "wrong"
-}
-```
-
-FastAPI вернёт `422`.
-
----
-
-# 37. Хорошие практики junior+
-
-## 1. Разделяй слои
+## Ошибка 5. Хранишь SECRET_KEY в коде
 
 Плохо:
 
 ```python
-@router.post("/users")
-async def create_user(...):
-    # SQL прямо здесь
+JWT_SECRET_KEY = "secret"
 ```
 
 Лучше:
 
-```text
-routers -> crud -> models
+```env
+JWT_SECRET_KEY=...
 ```
 
-Роутер отвечает за HTTP.  
-CRUD отвечает за работу с базой.  
-Модель описывает таблицу.
+---
+
+# 35. Минимальный порядок разработки нового endpoint
+
+Допустим, ты хочешь добавить новую сущность `Category`.
+
+Порядок:
+
+1. Создать SQLAlchemy-модель `Category`.
+2. Импортировать её в `models/__init__.py`.
+3. Создать Pydantic-схемы:
+   - `CategoryCreate`;
+   - `CategoryUpdate`;
+   - `CategoryRead`.
+4. Создать CRUD-функции.
+5. Создать router.
+6. Подключить router в `main.py`.
+7. Сделать миграцию Alembic.
+8. Проверить через Swagger.
 
 ---
 
-## 2. Никогда не возвращай пароль
+# 36. Как думать как junior backend-разработчик
 
-Даже хешированный пароль лучше не возвращать.
+Когда ты пишешь endpoint, всегда задавай вопросы:
 
----
+## 1. Кто может вызвать этот endpoint?
 
-## 3. Используй миграции
-
-Не создавай таблицы вручную в продакшене.
-
----
-
-## 4. Используй response_model
+Если только авторизованный пользователь:
 
 ```python
-@router.get("/users/{user_id}", response_model=UserRead)
+current_user: User = Depends(get_current_user)
 ```
 
-Это:
+## 2. Какие данные приходят?
 
-- фильтрует лишние поля
-- документирует API
-- проверяет ответ
-
----
-
-## 5. Используй статусы
+Создай Pydantic-схему:
 
 ```python
-status_code=status.HTTP_201_CREATED
+class TodoCreate(BaseModel):
+    title: str
 ```
 
-Это читаемо и правильно.
+## 3. Какие данные возвращаются?
 
----
-
-## 6. Не делай огромный `main.py`
-
-Структурируй проект:
-
-```text
-api/
-crud/
-models/
-schemas/
-core/
-db/
-```
-
----
-
-## 7. Для PATCH используй exclude_unset
+Создай response schema:
 
 ```python
-model_dump(exclude_unset=True)
+class TodoRead(BaseModel):
+    id: int
+    title: str
 ```
 
-Иначе можно случайно затереть поля на `None`.
+## 4. Есть ли доступ к чужим данным?
+
+Всегда фильтруй по владельцу:
+
+```python
+.where(Todo.owner_id == current_user.id)
+```
+
+## 5. Какие ошибки возможны?
+
+Например:
+
+```python
+if todo is None:
+    raise HTTPException(status_code=404, detail="Todo not found")
+```
 
 ---
 
-# 38. Минимальный полный порядок запуска
+# 37. Пример полного запроса через curl
+
+## Регистрация
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"123456"}'
+```
+
+## Логин
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=123456"
+```
+
+## Создание задачи
+
+```bash
+curl -X POST http://127.0.0.1:8000/todos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Learn FastAPI","description":"Practice every day"}'
+```
+
+---
+
+# 38. Что нужно знать на уровне уверенного junior+
+
+Тебе нужно уверенно понимать:
+
+## FastAPI
+
+- `FastAPI()`;
+- routers;
+- path/query/body parameters;
+- `Depends`;
+- `HTTPException`;
+- `response_model`;
+- status codes;
+- Swagger;
+- авторизация через Bearer token.
+
+## Pydantic
+
+- `BaseModel`;
+- `Field`;
+- `EmailStr`;
+- optional поля;
+- `model_dump`;
+- `exclude_unset`;
+- `ConfigDict(from_attributes=True)`;
+- схемы для create/read/update.
+
+## SQLAlchemy 2
+
+- `DeclarativeBase`;
+- `Mapped`;
+- `mapped_column`;
+- `relationship`;
+- `ForeignKey`;
+- `AsyncSession`;
+- `select`;
+- `session.add`;
+- `session.commit`;
+- `session.refresh`;
+- `session.delete`.
+
+## PostgreSQL
+
+- таблицы;
+- primary key;
+- foreign key;
+- unique index;
+- nullable;
+- связи one-to-many.
+
+## Alembic
+
+- `alembic init`;
+- `revision --autogenerate`;
+- `upgrade head`;
+- зачем нужны миграции.
+
+## Безопасность
+
+- нельзя хранить обычные пароли;
+- нужен bcrypt;
+- JWT должен иметь срок жизни;
+- секреты хранятся в `.env`;
+- пользователь не должен получать чужие данные.
+
+---
+
+# 39. Итоговая схема работы приложения
+
+Когда пользователь создаёт задачу:
+
+1. Клиент отправляет запрос:
+
+```http
+POST /todos
+Authorization: Bearer token
+```
+
+2. FastAPI вызывает:
+
+```python
+get_current_user()
+```
+
+3. `get_current_user` проверяет JWT.
+
+4. Если токен правильный, достаёт пользователя из БД.
+
+5. FastAPI валидирует body через `TodoCreate`.
+
+6. Вызывается CRUD-функция:
+
+```python
+create_todo(...)
+```
+
+7. SQLAlchemy сохраняет задачу в PostgreSQL.
+
+8. FastAPI возвращает ответ по схеме `TodoRead`.
+
+---
+
+# 40. Что делать дальше
+
+После этого проекта стоит изучить:
+
+1. `PUT` vs `PATCH`;
+2. роли пользователей: admin/user;
+3. refresh tokens;
+4. pagination с total count;
+5. фильтрацию и сортировку;
+6. тестирование через pytest;
+7. Dockerfile для приложения;
+8. CI/CD;
+9. логирование;
+10. обработку ошибок централизованно;
+11. repository/service architecture;
+12. загрузку файлов;
+13. Redis;
+14. Celery;
+15. WebSocket.
+
+---
+
+# 41. Краткий чеклист запуска проекта
 
 ```bash
 docker compose up -d
 ```
 
 ```bash
-alembic revision --autogenerate -m "create users and posts"
+python -m venv venv
+source venv/bin/activate
+```
+
+или Windows:
+
+```bash
+venv\Scripts\Activate.ps1
+```
+
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+alembic revision --autogenerate -m "create tables"
 ```
 
 ```bash
@@ -2174,254 +2502,24 @@ http://127.0.0.1:8000/docs
 
 ---
 
-# 39. Что ты должен понимать на уровне junior+
+# 42. Самая важная мысль
 
-После изучения этого проекта ты должен уметь:
-
-## FastAPI
-
-- создавать приложение
-- создавать эндпоинты
-- использовать path/query/body параметры
-- использовать `APIRouter`
-- использовать `Depends`
-- возвращать правильные HTTP-статусы
-- обрабатывать ошибки через `HTTPException`
-- читать Swagger-документацию
-
-## Pydantic
-
-- создавать схемы
-- валидировать входные данные
-- использовать `Field`
-- использовать `EmailStr`
-- делать разные схемы:
-  - Create
-  - Update
-  - Read
-- понимать `model_dump`
-- понимать `exclude_unset`
-- понимать `from_attributes=True`
-
-## SQLAlchemy
-
-- создавать модели
-- понимать таблицы и колонки
-- понимать связи `relationship`
-- делать `select`
-- делать `add`
-- делать `commit`
-- делать `refresh`
-- делать `delete`
-- работать с `AsyncSession`
-
-## PostgreSQL
-
-- понимать базу данных
-- понимать таблицы
-- понимать связи по `ForeignKey`
-- запускать PostgreSQL через Docker
-- подключаться через URL
-
-## Alembic
-
-- создавать миграции
-- применять миграции
-- понимать зачем они нужны
-
-## Auth
-
-- хешировать пароль
-- проверять пароль
-- создавать JWT
-- защищать endpoint через `get_current_user`
-
----
-
-# 40. Итоговая логика проекта
-
-Когда клиент создаёт пользователя:
-
-```http
-POST /users
-```
-
-FastAPI:
-
-1. принимает JSON
-2. проверяет его через `UserCreate`
-3. вызывает endpoint
-4. endpoint проверяет email
-5. вызывает CRUD
-6. CRUD хеширует пароль
-7. сохраняет пользователя в PostgreSQL
-8. возвращает пользователя через `UserRead`
-
-Когда клиент логинится:
-
-```http
-POST /auth/login
-```
-
-FastAPI:
-
-1. принимает email и пароль
-2. ищет пользователя
-3. проверяет пароль
-4. создаёт JWT
-5. возвращает токен
-
-Когда клиент создаёт пост:
-
-```http
-POST /posts
-Authorization: Bearer TOKEN
-```
-
-FastAPI:
-
-1. достаёт токен
-2. проверяет JWT
-3. получает текущего пользователя
-4. валидирует пост через `PostCreate`
-5. создаёт пост с `author_id=current_user.id`
-6. сохраняет в базу
-7. возвращает `PostRead`
-
----
-
-# 41. Что учить дальше
-
-Чтобы стать уверенным junior+ backend-разработчиком, дальше изучай:
-
-1. **SQL глубже**
-   - JOIN
-   - GROUP BY
-   - индексы
-   - транзакции
-
-2. **SQLAlchemy глубже**
-   - eager loading
-   - lazy loading
-   - joinedload/selectinload
-   - транзакции
-   - сложные фильтры
-
-3. **FastAPI глубже**
-   - middleware
-   - exception handlers
-   - background tasks
-   - lifespan events
-   - file upload
-   - WebSocket
-
-4. **Авторизация**
-   - refresh token
-   - roles/permissions
-   - OAuth2
-   - scopes
-
-5. **Тестирование**
-   - pytest
-   - test database
-   - dependency override
-
-6. **DevOps**
-   - Dockerfile
-   - Docker Compose для всего приложения
-   - Nginx
-   - CI/CD
-
-7. **Архитектура**
-   - service layer
-   - repository pattern
-   - clean architecture
-   - domain-driven design basics
-
----
-
-# 42. Очень короткая шпаргалка
-
-## FastAPI endpoint
-
-```python
-@router.get("/items/{item_id}")
-async def get_item(item_id: int):
-    return {"item_id": item_id}
-```
-
-## Pydantic schema
-
-```python
-class ItemCreate(BaseModel):
-    title: str = Field(min_length=3)
-```
-
-## SQLAlchemy model
-
-```python
-class Item(Base):
-    __tablename__ = "items"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(100))
-```
-
-## Получить из базы
-
-```python
-result = await db.execute(select(Item).where(Item.id == item_id))
-item = result.scalar_one_or_none()
-```
-
-## Создать в базе
-
-```python
-item = Item(title="Test")
-db.add(item)
-await db.commit()
-await db.refresh(item)
-```
-
-## Обновить
-
-```python
-item.title = "New title"
-await db.commit()
-await db.refresh(item)
-```
-
-## Удалить
-
-```python
-await db.delete(item)
-await db.commit()
-```
-
----
-
-# 43. Главная мысль
-
-FastAPI-приложение обычно строится так:
+FastAPI-приложение обычно состоит из слоёв:
 
 ```text
 HTTP request
     ↓
-FastAPI router
+Router / Endpoint
     ↓
 Pydantic validation
     ↓
-Dependency injection
+Dependencies
     ↓
 CRUD / Service logic
     ↓
-SQLAlchemy ORM
+SQLAlchemy
     ↓
 PostgreSQL
-    ↓
-Response model
-    ↓
-JSON response
 ```
 
-Если ты понимаешь этот путь данных — ты уже понимаешь основу backend-разработки на FastAPI.
+Если ты понимаешь этот путь данных, ты уже близок к уровню junior backend developer.

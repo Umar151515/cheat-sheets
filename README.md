@@ -9,3 +9,4 @@
 [SQLalchemy2](sqlalchemy2.md)
 [Fastapi](fastapi.md)
 [Docker](docker.md)
+[Redis](redis.md)

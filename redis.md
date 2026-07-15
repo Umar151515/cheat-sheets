@@ -1,112 +1,140 @@
-# Redis с нуля до уверенного Junior+ на Python
+# Redis + асинхронный Python с нуля до уровня уверенного Junior+
 
-Redis — это очень быстая in-memory база данных типа **key-value**.  
-То есть Redis хранит данные в формате:
+Это подробное практическое руководство по Redis и работе с ним из асинхронного Python.
 
-```text
-ключ -> значение
-```
+Мы будем разбирать всё с нуля:
+
+- что такое Redis;
+- зачем он нужен;
+- как его установить;
+- как устроены ключи, значения и TTL;
+- какие есть типы данных;
+- как работать через `redis-cli`;
+- как работать из Python асинхронно;
+- как делать кэширование;
+- как делать очереди;
+- как делать Pub/Sub;
+- как делать Streams;
+- как использовать транзакции;
+- как писать безопасный и нормальный junior+ код;
+- какие ошибки чаще всего делают новички.
+
+---
+
+# 1. Что такое Redis
+
+**Redis** — это очень быстрая in-memory база данных формата `key-value`.
+
+Проще:
+
+> Redis хранит данные в оперативной памяти и позволяет очень быстро читать и записывать их по ключам.
 
 Например:
 
 ```text
-"user:1:name" -> "Ivan"
-"user:1:age"  -> "25"
+ключ: user:1:name
+значение: "Алексей"
 ```
 
-Redis часто используют для:
+Redis часто используют как:
 
-1. **Кэша**
-2. **Сессий пользователей**
-3. **Очередей задач**
-4. **Rate limiting**
-5. **Хранения временных данных**
-6. **Pub/Sub**
-7. **Счётчиков**
-8. **Лидеров рейтингов**
-9. **Блокировок**
-10. **Streams / событий**
+1. **Кэш**
+2. **Брокер сообщений**
+3. **Очередь задач**
+4. **Хранилище сессий**
+5. **Счётчики**
+6. **Rate limiter**
+7. **Pub/Sub систему**
+8. **Временное хранилище токенов**
+9. **Хранилище online-статусов**
+10. **Быструю структуру данных**
 
 ---
 
-# 1. Что такое Redis простыми словами
+# 2. Чем Redis отличается от обычной базы данных
 
-Обычная база данных, например PostgreSQL, хранит данные на диске.
+Например, PostgreSQL хранит данные на диске и хорошо подходит для постоянного хранения.
 
-Redis в первую очередь хранит данные в **оперативной памяти**.
+Redis в основном хранит данные в памяти, поэтому он очень быстрый.
 
-Из-за этого Redis очень быстрый.
+## PostgreSQL
 
-Примерно:
+Подходит для:
 
-```text
-PostgreSQL:
-запрос -> диск -> данные -> ответ
+- пользователей;
+- заказов;
+- платежей;
+- товаров;
+- важных данных;
+- сложных SQL-запросов.
 
-Redis:
-запрос -> RAM -> ответ
-```
+## Redis
 
-Поэтому Redis может обрабатывать десятки и сотни тысяч операций в секунду.
+Подходит для:
 
----
+- кэша;
+- временных данных;
+- токенов;
+- очередей;
+- счётчиков;
+- блокировок;
+- данных с TTL;
+- быстрых операций.
 
-# 2. Где Redis НЕ заменяет PostgreSQL/MySQL
+## Важная мысль
 
-Redis — это не универсальная замена SQL-базе.
+Redis **не заменяет PostgreSQL** в большинстве проектов.
 
-Redis хорошо подходит для:
-
-```text
-быстро достать
-быстро сохранить
-быстро посчитать
-быстро удалить
-хранить временные данные
-```
-
-Но Redis плохо подходит как единственное хранилище для:
+Часто архитектура такая:
 
 ```text
-банковских транзакций
-сложных SQL-запросов
-связанных таблиц
-долгосрочной бизнес-информации
-сложной аналитики
-```
-
-Обычно Redis используют вместе с основной БД:
-
-```text
-Python-приложение
+FastAPI / Django / Backend
         |
-        |---- PostgreSQL — постоянные данные
+        |--- PostgreSQL — основные данные
         |
-        |---- Redis — кэш, очереди, сессии, счётчики
+        |--- Redis — кэш, очереди, сессии, rate limit
 ```
 
 ---
 
-# 3. Установка Redis
+# 3. Почему Redis такой быстрый
+
+Главные причины:
+
+1. Данные лежат в RAM.
+2. Redis использует простые структуры данных.
+3. Многие операции выполняются за `O(1)` или `O(log n)`.
+4. Redis однопоточный для исполнения команд, поэтому внутри нет сложных блокировок.
+5. Поддерживает неблокирующий I/O.
+
+---
+
+# 4. Установка Redis
 
 ## Вариант 1. Через Docker
 
-Самый удобный способ для обучения.
+Самый простой вариант.
 
 ```bash
-docker run --name my-redis -p 6379:6379 -d redis:7
+docker run --name redis-dev -p 6379:6379 -d redis:7
 ```
 
-Проверить, что контейнер работает:
+Проверить:
 
 ```bash
 docker ps
 ```
 
-Подключиться к Redis CLI:
+Подключиться:
 
 ```bash
-docker exec -it my-redis redis-cli
+docker exec -it redis-dev redis-cli
+```
+
+Если всё хорошо, увидишь:
+
+```text
+127.0.0.1:6379>
 ```
 
 Проверка:
@@ -117,13 +145,13 @@ PING
 
 Ответ:
 
-```redis
+```text
 PONG
 ```
 
 ---
 
-## Вариант 2. Docker Compose
+## Вариант 2. Через docker-compose
 
 Создай файл `docker-compose.yml`:
 
@@ -131,9 +159,10 @@ PONG
 services:
   redis:
     image: redis:7
-    container_name: redis-learning
+    container_name: redis-dev
     ports:
       - "6379:6379"
+    restart: unless-stopped
 ```
 
 Запуск:
@@ -142,198 +171,712 @@ services:
 docker compose up -d
 ```
 
-Остановка:
+Подключение:
 
 ```bash
-docker compose down
+docker exec -it redis-dev redis-cli
 ```
 
 ---
 
-# 4. Установка Python-клиента
+# 5. Базовые команды Redis
 
-Для работы с Redis из Python чаще всего используют библиотеку `redis`.
+## SET
 
-```bash
-pip install redis
-```
-
-Проверка:
-
-```python
-import redis
-
-r = redis.Redis(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True
-)
-
-print(r.ping())
-```
-
-Если всё хорошо, увидишь:
-
-```text
-True
-```
-
----
-
-# 5. Подключение к Redis из Python
-
-```python
-import redis
-
-r = redis.Redis(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True
-)
-```
-
-Разберём параметры:
-
-```python
-host="localhost"
-```
-
-Redis запущен на твоём компьютере.
-
-```python
-port=6379
-```
-
-Стандартный порт Redis.
-
-```python
-db=0
-```
-
-Redis поддерживает несколько логических баз данных: `0`, `1`, `2` и так далее.  
-Обычно используют `0`.
-
-```python
-decode_responses=True
-```
-
-Очень важный параметр.
-
-Без него Redis будет возвращать байты:
-
-```python
-b"hello"
-```
-
-С ним Redis возвращает обычные строки:
-
-```python
-"hello"
-```
-
----
-
-# 6. Redis CLI: базовые команды
-
-Redis можно использовать через консоль:
-
-```bash
-redis-cli
-```
-
-Примеры:
+Сохраняет значение по ключу.
 
 ```redis
-SET name Ivan
+SET name "Alex"
+```
+
+## GET
+
+Получает значение по ключу.
+
+```redis
 GET name
+```
+
+Ответ:
+
+```text
+"Alex"
+```
+
+## DEL
+
+Удаляет ключ.
+
+```redis
 DEL name
+```
+
+## EXISTS
+
+Проверяет, существует ли ключ.
+
+```redis
 EXISTS name
 ```
 
-То же самое из Python:
+Ответ:
 
-```python
-r.set("name", "Ivan")
-print(r.get("name"))
-r.delete("name")
-print(r.exists("name"))
+```text
+1
 ```
+
+или:
+
+```text
+0
+```
+
+## KEYS
+
+Показывает ключи по шаблону.
+
+```redis
+KEYS *
+```
+
+Но важно:
+
+> `KEYS *` нельзя использовать на production с большим количеством данных, потому что команда может заблокировать Redis.
+
+Для production лучше использовать `SCAN`.
 
 ---
 
-# 7. Главная идея Redis: ключи
+# 6. Что такое key-value
 
-В Redis почти всё строится вокруг ключей.
+Redis хранит данные по принципу:
+
+```text
+ключ -> значение
+```
 
 Пример:
 
 ```redis
-SET user:1:name Ivan
-SET user:1:age 25
-SET product:10:title "iPhone"
-SET cart:5:item:10 2
+SET user:1:name "Ivan"
+GET user:1:name
 ```
 
-Хороший стиль именования ключей:
+Ключ:
+
+```text
+user:1:name
+```
+
+Значение:
+
+```text
+Ivan
+```
+
+---
+
+# 7. Как правильно называть ключи
+
+В Redis нет строгой схемы, поэтому важно самому договориться о стиле.
+
+Обычно используют такой формат:
 
 ```text
 entity:id:field
 ```
 
-Например:
+Примеры:
 
 ```text
 user:1:name
 user:1:email
-order:100:status
-product:50:price
+user:1:session
+product:15:views
+order:1001:status
 ```
 
-Для разделения используют двоеточие `:`.
-
----
-
-# 8. Типы данных Redis
-
-Redis — это не просто строки. У него есть разные структуры данных:
-
-| Тип Redis | Для чего используется |
-|---|---|
-| String | строки, числа, JSON, счётчики |
-| Hash | объект с полями |
-| List | очередь, стек, список |
-| Set | уникальные значения |
-| Sorted Set | рейтинги, лидерборды |
-| Stream | события, очереди сообщений |
-| Bitmap | битовые флаги |
-| HyperLogLog | приблизительный подсчёт уникальных |
-| Geo | географические координаты |
-
----
-
-# 9. String
-
-## 9.1 Что такое String
-
-String — самый простой тип Redis.
-
-Можно хранить:
+Для кэша:
 
 ```text
-строку
-число
-JSON
-токен
-флаг
+cache:user:1
+cache:product:15
+cache:feed:main
 ```
+
+Для rate limit:
+
+```text
+rate_limit:user:1:login
+rate_limit:ip:127.0.0.1
+```
+
+Для блокировок:
+
+```text
+lock:order:1001
+lock:payment:555
+```
+
+---
+
+# 8. TTL — время жизни ключа
+
+TTL — это время, через которое ключ автоматически удалится.
+
+Это одна из важнейших возможностей Redis.
+
+## Установить ключ на 10 секунд
+
+```redis
+SET token "abc123" EX 10
+```
+
+Через 10 секунд ключ исчезнет.
+
+## Проверить TTL
+
+```redis
+TTL token
+```
+
+Ответ:
+
+```text
+7
+```
+
+Это значит, что ключ живёт ещё 7 секунд.
+
+## Установить TTL отдельно
+
+```redis
+SET code "123456"
+EXPIRE code 60
+```
+
+Ключ `code` удалится через 60 секунд.
+
+---
+
+# 9. Основные типы данных Redis
+
+Redis — это не просто строка по ключу.
+
+Он поддерживает разные структуры:
+
+1. String
+2. List
+3. Hash
+4. Set
+5. Sorted Set
+6. Bitmap
+7. HyperLogLog
+8. Geospatial
+9. Stream
+
+Junior+ должен хорошо знать первые 5 и понимать, зачем нужны Streams.
+
+---
+
+# 10. String
+
+String — самый простой тип.
+
+Это может быть:
+
+- строка;
+- число;
+- JSON;
+- бинарные данные.
+
+## Пример
+
+```redis
+SET user:1:name "Ivan"
+GET user:1:name
+```
+
+## Счётчик
+
+```redis
+SET views:post:1 0
+INCR views:post:1
+INCR views:post:1
+GET views:post:1
+```
+
+Ответ:
+
+```text
+"2"
+```
+
+## Увеличение на конкретное число
+
+```redis
+INCRBY views:post:1 10
+```
+
+## Уменьшение
+
+```redis
+DECR views:post:1
+DECRBY views:post:1 5
+```
+
+## Где использовать String
+
+- кэш JSON;
+- токены;
+- счётчики;
+- временные коды;
+- простые значения.
+
+---
+
+# 11. Hash
+
+Hash — это словарь внутри Redis.
 
 Пример:
 
+```text
+user:1 -> {
+    name: "Ivan",
+    age: "25",
+    email: "ivan@example.com"
+}
+```
+
+## Создать hash
+
+```redis
+HSET user:1 name "Ivan" age "25" email "ivan@example.com"
+```
+
+## Получить одно поле
+
+```redis
+HGET user:1 name
+```
+
+## Получить весь hash
+
+```redis
+HGETALL user:1
+```
+
+## Проверить поле
+
+```redis
+HEXISTS user:1 email
+```
+
+## Удалить поле
+
+```redis
+HDEL user:1 age
+```
+
+## Увеличить числовое поле
+
+```redis
+HINCRBY user:1 login_count 1
+```
+
+## Где использовать Hash
+
+- профиль пользователя;
+- настройки;
+- объект с полями;
+- статистика.
+
+---
+
+# 12. List
+
+List — это список строк.
+
+Redis List похож на массив, но чаще используется как очередь или стек.
+
+## Добавить в начало
+
+```redis
+LPUSH tasks "task1"
+LPUSH tasks "task2"
+```
+
+Список:
+
+```text
+task2, task1
+```
+
+## Добавить в конец
+
+```redis
+RPUSH tasks "task3"
+```
+
+Список:
+
+```text
+task2, task1, task3
+```
+
+## Достать из начала
+
+```redis
+LPOP tasks
+```
+
+## Достать из конца
+
+```redis
+RPOP tasks
+```
+
+## Посмотреть список
+
+```redis
+LRANGE tasks 0 -1
+```
+
+## Очередь FIFO
+
+FIFO — first in, first out.
+
+Первый вошёл — первый вышел.
+
+Добавляем справа:
+
+```redis
+RPUSH queue "task1"
+RPUSH queue "task2"
+```
+
+Забираем слева:
+
+```redis
+LPOP queue
+```
+
+Получим:
+
+```text
+task1
+```
+
+## Блокирующее ожидание
+
+```redis
+BLPOP queue 0
+```
+
+Команда будет ждать, пока в списке появится элемент.
+
+Где использовать List:
+
+- простые очереди;
+- логи;
+- недавние действия;
+- список последних элементов.
+
+---
+
+# 13. Set
+
+Set — множество уникальных значений.
+
+В Set не может быть дублей.
+
+## Добавить элементы
+
+```redis
+SADD online_users 1
+SADD online_users 2
+SADD online_users 1
+```
+
+Пользователь `1` добавится только один раз.
+
+## Получить все элементы
+
+```redis
+SMEMBERS online_users
+```
+
+## Проверить наличие
+
+```redis
+SISMEMBER online_users 1
+```
+
+## Удалить
+
+```redis
+SREM online_users 1
+```
+
+## Количество
+
+```redis
+SCARD online_users
+```
+
+## Пересечение множеств
+
+```redis
+SINTER set1 set2
+```
+
+## Объединение
+
+```redis
+SUNION set1 set2
+```
+
+Где использовать Set:
+
+- уникальные пользователи;
+- лайки;
+- теги;
+- online users;
+- множество прав доступа.
+
+---
+
+# 14. Sorted Set
+
+Sorted Set — это множество уникальных элементов, но у каждого элемента есть score.
+
+Score — число, по которому Redis сортирует элементы.
+
+Пример рейтинга:
+
+```text
+Ivan -> 100
+Anna -> 250
+Oleg -> 150
+```
+
+## Добавить элементы
+
+```redis
+ZADD leaderboard 100 Ivan
+ZADD leaderboard 250 Anna
+ZADD leaderboard 150 Oleg
+```
+
+## Получить по возрастанию
+
+```redis
+ZRANGE leaderboard 0 -1 WITHSCORES
+```
+
+## Получить по убыванию
+
+```redis
+ZREVRANGE leaderboard 0 -1 WITHSCORES
+```
+
+Ответ:
+
+```text
+Anna 250
+Oleg 150
+Ivan 100
+```
+
+## Увеличить score
+
+```redis
+ZINCRBY leaderboard 50 Ivan
+```
+
+## Получить позицию
+
+```redis
+ZREVRANK leaderboard Ivan
+```
+
+Где использовать Sorted Set:
+
+- рейтинги;
+- топ пользователей;
+- отложенные задачи;
+- сортировка по времени;
+- priority queue.
+
+---
+
+# 15. Pub/Sub
+
+Pub/Sub — механизм публикации сообщений.
+
+Есть:
+
+- publisher — отправляет сообщение;
+- subscriber — слушает канал.
+
+## Подписка
+
+В одном терминале:
+
+```redis
+SUBSCRIBE news
+```
+
+## Публикация
+
+В другом терминале:
+
+```redis
+PUBLISH news "Hello"
+```
+
+Подписчик получит:
+
+```text
+Hello
+```
+
+## Важно
+
+Pub/Sub не хранит сообщения.
+
+Если подписчика не было онлайн — он сообщение потеряет.
+
+Где использовать Pub/Sub:
+
+- уведомления онлайн-пользователям;
+- websocket fanout;
+- системные события;
+- простой realtime.
+
+Если нужно хранить сообщения — лучше использовать Streams.
+
+---
+
+# 16. Streams
+
+Redis Streams — это лог событий.
+
+В отличие от Pub/Sub, сообщения сохраняются.
+
+Stream похож на очередь с историей.
+
+## Добавить сообщение
+
+```redis
+XADD orders * user_id 1 amount 500
+```
+
+`*` значит, что Redis сам создаст ID.
+
+## Прочитать сообщения
+
+```redis
+XREAD COUNT 10 STREAMS orders 0
+```
+
+## Consumer Groups
+
+Consumer Group позволяет нескольким воркерам обрабатывать сообщения совместно.
+
+Создать группу:
+
+```redis
+XGROUP CREATE orders order_workers $ MKSTREAM
+```
+
+Читать из группы:
+
+```redis
+XREADGROUP GROUP order_workers worker1 COUNT 1 BLOCK 5000 STREAMS orders >
+```
+
+Подтвердить обработку:
+
+```redis
+XACK orders order_workers message_id
+```
+
+Где использовать Streams:
+
+- очереди событий;
+- обработка заказов;
+- аудит;
+- фоновые задачи;
+- микросервисные события.
+
+---
+
+# 17. Установка Python-клиента Redis
+
+Раньше часто использовали библиотеку `aioredis`.
+
+Сейчас `aioredis` объединён с официальной библиотекой `redis-py`.
+
+Для асинхронной работы используется:
+
 ```python
-r.set("name", "Ivan")
-print(r.get("name"))
+import redis.asyncio as redis
+```
+
+Установка:
+
+```bash
+pip install redis
+```
+
+Проверка версии:
+
+```bash
+pip show redis
+```
+
+Желательно использовать современную версию:
+
+```bash
+pip install "redis>=5"
+```
+
+---
+
+# 18. Первый асинхронный пример на Python
+
+Создай файл `main.py`:
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    client = redis.Redis(
+        host="localhost",
+        port=6379,
+        db=0,
+        decode_responses=True,
+    )
+
+    await client.set("name", "Ivan")
+    value = await client.get("name")
+
+    print(value)
+
+    await client.aclose()
+
+
+asyncio.run(main())
+```
+
+Запуск:
+
+```bash
+python main.py
 ```
 
 Результат:
@@ -344,1588 +887,1217 @@ Ivan
 
 ---
 
-## 9.2 SET и GET
+# 19. Что значит async/await
+
+Обычный код выполняется последовательно.
+
+Асинхронный код позволяет не блокировать программу, пока мы ждём ответ от Redis.
+
+Например:
 
 ```python
-r.set("user:1:name", "Ivan")
-
-name = r.get("user:1:name")
-
-print(name)
+value = await client.get("name")
 ```
+
+Здесь программа говорит:
+
+> Я отправила запрос в Redis. Пока Redis отвечает, event loop может выполнять другие задачи.
+
+Это особенно важно в FastAPI, aiohttp, aiogram и других async-фреймворках.
 
 ---
 
-## 9.3 Проверка существования ключа
+# 20. Подключение к Redis через URL
+
+Часто в проектах используют URL:
 
 ```python
-if r.exists("user:1:name"):
-    print("Ключ существует")
-else:
-    print("Ключа нет")
+import redis.asyncio as redis
+
+client = redis.from_url(
+    "redis://localhost:6379/0",
+    decode_responses=True,
+)
 ```
 
----
-
-## 9.4 Удаление ключа
-
-```python
-r.delete("user:1:name")
-```
-
----
-
-## 9.5 Хранение чисел
-
-Redis хранит значения как строки, но умеет увеличивать и уменьшать числа.
-
-```python
-r.set("counter", 0)
-
-r.incr("counter")
-r.incr("counter")
-r.incr("counter")
-
-print(r.get("counter"))
-```
-
-Результат:
+Если Redis с паролем:
 
 ```text
-3
+redis://:password@localhost:6379/0
 ```
-
-Уменьшить:
-
-```python
-r.decr("counter")
-```
-
-Увеличить на конкретное число:
-
-```python
-r.incrby("counter", 10)
-```
-
----
-
-## 9.6 Практический пример: счётчик просмотров
-
-```python
-def add_view(article_id: int):
-    key = f"article:{article_id}:views"
-    return r.incr(key)
-
-
-def get_views(article_id: int):
-    key = f"article:{article_id}:views"
-    views = r.get(key)
-
-    if views is None:
-        return 0
-
-    return int(views)
-
-
-add_view(10)
-add_view(10)
-
-print(get_views(10))
-```
-
----
-
-# 10. TTL и expiration
-
-Redis умеет автоматически удалять ключи через определённое время.
-
-Это называется TTL — Time To Live.
-
----
-
-## 10.1 SETEX
-
-Сохранить ключ на 60 секунд:
-
-```python
-r.setex("temporary:key", 60, "hello")
-```
-
-Через 60 секунд ключ исчезнет.
-
----
-
-## 10.2 EXPIRE
-
-Можно сначала создать ключ, потом назначить время жизни:
-
-```python
-r.set("session:123", "user_id=1")
-r.expire("session:123", 3600)
-```
-
-Ключ исчезнет через 1 час.
-
----
-
-## 10.3 TTL
-
-Узнать, сколько ключу осталось жить:
-
-```python
-ttl = r.ttl("session:123")
-print(ttl)
-```
-
-Возможные значения:
-
-```text
-> 0   количество секунд до удаления
--1    ключ существует, но TTL нет
--2    ключа не существует
-```
-
----
-
-## 10.4 Практический пример: код подтверждения
-
-```python
-import random
-
-def create_confirmation_code(user_id: int):
-    code = random.randint(100000, 999999)
-    key = f"confirmation:{user_id}"
-
-    r.setex(key, 300, code)
-
-    return code
-
-
-def check_confirmation_code(user_id: int, code: str):
-    key = f"confirmation:{user_id}"
-
-    saved_code = r.get(key)
-
-    if saved_code is None:
-        return False
-
-    return saved_code == str(code)
-
-
-code = create_confirmation_code(1)
-print("Код:", code)
-
-print(check_confirmation_code(1, code))
-```
-
-Код живёт 5 минут.
-
----
-
-# 11. SET с параметрами NX и XX
-
-## 11.1 NX
-
-`NX` означает: установить значение только если ключа ещё нет.
-
-Python:
-
-```python
-result = r.set("lock:task", "1", nx=True)
-
-print(result)
-```
-
-Если ключа не было:
-
-```text
-True
-```
-
-Если ключ уже есть:
-
-```text
-None
-```
-
----
-
-## 11.2 XX
-
-`XX` означает: установить значение только если ключ уже существует.
-
-```python
-r.set("name", "Ivan")
-
-result = r.set("name", "Petr", xx=True)
-
-print(result)
-```
-
----
-
-## 11.3 SET с expiration
-
-```python
-r.set("token:abc", "user_id=1", ex=3600)
-```
-
-Ключ будет жить 3600 секунд.
-
----
-
-## 11.4 SET NX EX — база для блокировок
-
-```python
-r.set("lock:payment:100", "locked", nx=True, ex=10)
-```
-
-Это значит:
-
-```text
-Создай ключ lock:payment:100 только если его ещё нет.
-Если создал — удали через 10 секунд.
-```
-
----
-
-# 12. Hash
-
-## 12.1 Что такое Hash
-
-Hash — это объект внутри Redis.
 
 Пример:
 
-```text
-user:1
-    name  -> Ivan
-    age   -> 25
-    email -> ivan@example.com
-```
-
-Вместо:
-
-```text
-user:1:name
-user:1:age
-user:1:email
-```
-
-можно хранить всё в одном hash:
-
-```text
-user:1
-```
-
----
-
-## 12.2 HSET
-
 ```python
-r.hset("user:1", "name", "Ivan")
-r.hset("user:1", "age", 25)
-r.hset("user:1", "email", "ivan@example.com")
-```
-
----
-
-## 12.3 HMSET через mapping
-
-```python
-r.hset(
-    "user:2",
-    mapping={
-        "name": "Maria",
-        "age": 30,
-        "email": "maria@example.com"
-    }
+client = redis.from_url(
+    "redis://:my_password@localhost:6379/0",
+    decode_responses=True,
 )
 ```
 
 ---
 
-## 12.4 HGET
+# 21. decode_responses=True
+
+По умолчанию Redis возвращает bytes.
+
+Пример без `decode_responses=True`:
 
 ```python
-name = r.hget("user:1", "name")
-print(name)
+b'Ivan'
+```
+
+С `decode_responses=True`:
+
+```python
+'Ivan'
+```
+
+Для большинства обычных проектов удобнее использовать:
+
+```python
+decode_responses=True
 ```
 
 ---
 
-## 12.5 HGETALL
+# 22. Работа со String из Python
 
 ```python
-user = r.hgetall("user:1")
-print(user)
-```
+import asyncio
+import redis.asyncio as redis
 
-Результат:
 
-```python
-{
-    "name": "Ivan",
-    "age": "25",
-    "email": "ivan@example.com"
-}
-```
+async def main():
+    r = redis.Redis(decode_responses=True)
 
-Обрати внимание: Redis вернул `"25"` как строку.
+    await r.set("user:1:name", "Ivan")
 
----
+    name = await r.get("user:1:name")
+    print(name)
 
-## 12.6 HEXISTS
+    await r.delete("user:1:name")
 
-```python
-if r.hexists("user:1", "email"):
-    print("Email есть")
-```
+    exists = await r.exists("user:1:name")
+    print(exists)
 
----
+    await r.aclose()
 
-## 12.7 HDEL
 
-```python
-r.hdel("user:1", "email")
+asyncio.run(main())
 ```
 
 ---
 
-## 12.8 Практический пример: профиль пользователя
+# 23. TTL из Python
 
 ```python
-def save_user(user_id: int, name: str, age: int, email: str):
-    key = f"user:{user_id}"
+import asyncio
+import redis.asyncio as redis
 
-    r.hset(
-        key,
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    await r.set("auth:code:1", "123456", ex=60)
+
+    ttl = await r.ttl("auth:code:1")
+    print(ttl)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+`ex=60` означает TTL 60 секунд.
+
+Также есть `px`, если нужно в миллисекундах:
+
+```python
+await r.set("key", "value", px=5000)
+```
+
+Это 5000 миллисекунд, то есть 5 секунд.
+
+---
+
+# 24. NX и XX
+
+## NX
+
+Установить ключ только если его ещё нет.
+
+```python
+result = await r.set("lock:1", "locked", nx=True, ex=10)
+```
+
+Если ключа не было — вернёт `True`.
+
+Если ключ уже есть — вернёт `None`.
+
+## XX
+
+Установить ключ только если он уже существует.
+
+```python
+result = await r.set("some:key", "value", xx=True)
+```
+
+---
+
+# 25. Hash из Python
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    await r.hset(
+        "user:1",
         mapping={
-            "name": name,
-            "age": age,
-            "email": email
-        }
+            "name": "Ivan",
+            "age": "25",
+            "email": "ivan@example.com",
+        },
     )
 
+    name = await r.hget("user:1", "name")
+    print(name)
 
-def get_user(user_id: int):
-    key = f"user:{user_id}"
+    user = await r.hgetall("user:1")
+    print(user)
 
-    user = r.hgetall(key)
+    await r.hincrby("user:1", "login_count", 1)
 
-    if not user:
-        return None
+    user = await r.hgetall("user:1")
+    print(user)
 
-    return {
-        "name": user["name"],
-        "age": int(user["age"]),
-        "email": user["email"]
-    }
+    await r.aclose()
 
 
-save_user(1, "Ivan", 25, "ivan@example.com")
+asyncio.run(main())
+```
 
-print(get_user(1))
+Результат примерно:
+
+```python
+Ivan
+{'name': 'Ivan', 'age': '25', 'email': 'ivan@example.com'}
+{'name': 'Ivan', 'age': '25', 'email': 'ivan@example.com', 'login_count': '1'}
+```
+
+Обрати внимание:
+
+> Redis хранит значения как строки, поэтому `age` будет `'25'`, а не `25`.
+
+---
+
+# 26. List из Python
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    await r.delete("tasks")
+
+    await r.rpush("tasks", "task1")
+    await r.rpush("tasks", "task2")
+    await r.rpush("tasks", "task3")
+
+    tasks = await r.lrange("tasks", 0, -1)
+    print(tasks)
+
+    first_task = await r.lpop("tasks")
+    print(first_task)
+
+    tasks = await r.lrange("tasks", 0, -1)
+    print(tasks)
+
+    await r.aclose()
+
+
+asyncio.run(main())
 ```
 
 ---
 
-# 13. List
+# 27. Простая очередь на List
 
-## 13.1 Что такое List
+Producer добавляет задачи.
 
-List — это список строк.
+```python
+import asyncio
+import redis.asyncio as redis
 
-Можно добавлять элементы:
 
-```text
-слева
-справа
+async def producer():
+    r = redis.Redis(decode_responses=True)
+
+    for i in range(5):
+        task = f"send_email:{i}"
+        await r.rpush("queue:emails", task)
+        print("Added:", task)
+
+    await r.aclose()
+
+
+asyncio.run(producer())
 ```
 
-И доставать:
+Consumer забирает задачи:
 
-```text
-слева
-справа
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def consumer():
+    r = redis.Redis(decode_responses=True)
+
+    while True:
+        result = await r.blpop("queue:emails", timeout=0)
+
+        queue_name, task = result
+        print("Processing:", task)
+
+        await asyncio.sleep(1)
+        print("Done:", task)
+
+
+asyncio.run(consumer())
 ```
 
-Redis List часто используют для простых очередей.
+`BLPOP` ждёт, пока появится элемент.
 
 ---
 
-## 13.2 LPUSH и RPUSH
+# 28. Set из Python
 
 ```python
-r.lpush("tasks", "task1")
-r.lpush("tasks", "task2")
-r.rpush("tasks", "task3")
-```
+import asyncio
+import redis.asyncio as redis
 
-Если делаем:
 
-```python
-r.lrange("tasks", 0, -1)
-```
+async def main():
+    r = redis.Redis(decode_responses=True)
 
-можем получить:
+    await r.delete("online_users")
 
-```python
-["task2", "task1", "task3"]
-```
+    await r.sadd("online_users", "1")
+    await r.sadd("online_users", "2")
+    await r.sadd("online_users", "1")
 
----
+    users = await r.smembers("online_users")
+    print(users)
 
-## 13.3 LRANGE
+    is_online = await r.sismember("online_users", "1")
+    print(is_online)
 
-```python
-items = r.lrange("tasks", 0, -1)
-print(items)
-```
+    count = await r.scard("online_users")
+    print(count)
 
-`0` — первый элемент.  
-`-1` — последний элемент.
+    await r.srem("online_users", "1")
 
----
+    await r.aclose()
 
-## 13.4 LPOP и RPOP
 
-```python
-task = r.lpop("tasks")
-print(task)
-```
-
-```python
-task = r.rpop("tasks")
-print(task)
-```
-
----
-
-## 13.5 Простая очередь
-
-Если добавляем справа:
-
-```python
-r.rpush("queue:emails", "send email to user 1")
-r.rpush("queue:emails", "send email to user 2")
-```
-
-А забираем слева:
-
-```python
-task = r.lpop("queue:emails")
-```
-
-Получается FIFO:
-
-```text
-первым пришёл -> первым ушёл
+asyncio.run(main())
 ```
 
 ---
 
-## 13.6 Блокирующее ожидание BLPOP
-
-Обычный `lpop` сразу вернёт `None`, если очередь пустая.
-
-`blpop` может ждать задачу.
+# 29. Sorted Set из Python
 
 ```python
-task = r.blpop("queue:emails", timeout=10)
+import asyncio
+import redis.asyncio as redis
 
-print(task)
-```
 
-Если задача появилась, вернётся:
+async def main():
+    r = redis.Redis(decode_responses=True)
 
-```python
-("queue:emails", "send email to user 1")
-```
+    await r.delete("leaderboard")
 
----
-
-## 13.7 Практический пример: worker
-
-producer.py:
-
-```python
-import redis
-import json
-
-r = redis.Redis(decode_responses=True)
-
-def add_email_task(email: str, text: str):
-    task = {
-        "email": email,
-        "text": text
-    }
-
-    r.rpush("queue:emails", json.dumps(task))
-
-
-add_email_task("user@example.com", "Hello!")
-```
-
-worker.py:
-
-```python
-import redis
-import json
-import time
-
-r = redis.Redis(decode_responses=True)
-
-while True:
-    result = r.blpop("queue:emails", timeout=5)
-
-    if result is None:
-        print("Задач нет")
-        continue
-
-    queue_name, task_json = result
-    task = json.loads(task_json)
-
-    print("Отправляем письмо:", task)
-
-    time.sleep(1)
-
-    print("Готово")
-```
-
----
-
-# 14. Set
-
-## 14.1 Что такое Set
-
-Set — это множество уникальных значений.
-
-То есть в Set не может быть дублей.
-
-Пример:
-
-```text
-online_users = {1, 2, 3}
-```
-
----
-
-## 14.2 SADD
-
-```python
-r.sadd("online_users", 1)
-r.sadd("online_users", 2)
-r.sadd("online_users", 2)
-```
-
-Даже если добавить `2` два раза, он будет храниться один раз.
-
----
-
-## 14.3 SMEMBERS
-
-```python
-users = r.smembers("online_users")
-print(users)
-```
-
----
-
-## 14.4 SREM
-
-```python
-r.srem("online_users", 2)
-```
-
----
-
-## 14.5 SISMEMBER
-
-```python
-if r.sismember("online_users", 1):
-    print("Пользователь онлайн")
-```
-
----
-
-## 14.6 Практический пример: лайки поста
-
-```python
-def like_post(post_id: int, user_id: int):
-    key = f"post:{post_id}:likes"
-    r.sadd(key, user_id)
-
-
-def unlike_post(post_id: int, user_id: int):
-    key = f"post:{post_id}:likes"
-    r.srem(key, user_id)
-
-
-def is_liked(post_id: int, user_id: int):
-    key = f"post:{post_id}:likes"
-    return r.sismember(key, user_id)
-
-
-def likes_count(post_id: int):
-    key = f"post:{post_id}:likes"
-    return r.scard(key)
-
-
-like_post(10, 1)
-like_post(10, 2)
-like_post(10, 1)
-
-print(likes_count(10))
-print(is_liked(10, 1))
-```
-
----
-
-# 15. Sorted Set
-
-## 15.1 Что такое Sorted Set
-
-Sorted Set похож на Set, но у каждого элемента есть score.
-
-```text
-player_id -> score
-```
-
-Например рейтинг игроков:
-
-```text
-Ivan  -> 100
-Petr  -> 150
-Maria -> 120
-```
-
-Redis хранит их отсортированными по score.
-
----
-
-## 15.2 ZADD
-
-```python
-r.zadd(
-    "game:rating",
-    {
-        "Ivan": 100,
-        "Petr": 150,
-        "Maria": 120
-    }
-)
-```
-
----
-
-## 15.3 ZRANGE
-
-Получить от меньшего score к большему:
-
-```python
-players = r.zrange("game:rating", 0, -1, withscores=True)
-
-print(players)
-```
-
----
-
-## 15.4 ZREVRANGE
-
-Получить от большего score к меньшему:
-
-```python
-players = r.zrevrange("game:rating", 0, -1, withscores=True)
-
-print(players)
-```
-
----
-
-## 15.5 ZINCRBY
-
-Увеличить score:
-
-```python
-r.zincrby("game:rating", 50, "Ivan")
-```
-
----
-
-## 15.6 Практический пример: таблица лидеров
-
-```python
-def add_score(user_id: int, score: int):
-    key = "leaderboard"
-    r.zincrby(key, score, user_id)
-
-
-def get_top_users(limit: int = 10):
-    key = "leaderboard"
-
-    users = r.zrevrange(
-        key,
-        0,
-        limit - 1,
-        withscores=True
-    )
-
-    return [
+    await r.zadd(
+        "leaderboard",
         {
-            "user_id": int(user_id),
-            "score": int(score)
-        }
-        for user_id, score in users
-    ]
+            "Ivan": 100,
+            "Anna": 250,
+            "Oleg": 150,
+        },
+    )
+
+    top = await r.zrevrange("leaderboard", 0, -1, withscores=True)
+    print(top)
+
+    await r.zincrby("leaderboard", 50, "Ivan")
+
+    top = await r.zrevrange("leaderboard", 0, -1, withscores=True)
+    print(top)
+
+    rank = await r.zrevrank("leaderboard", "Ivan")
+    print(rank)
+
+    await r.aclose()
 
 
-add_score(1, 100)
-add_score(2, 250)
-add_score(3, 150)
-
-print(get_top_users())
+asyncio.run(main())
 ```
 
 ---
 
-# 16. JSON в Redis
+# 30. JSON в Redis
 
-Redis сам по себе хранит строки.
+Redis сам по себе не хранит Python-словарь как объект.
 
-Если нужно сохранить сложный объект, можно использовать JSON.
+Обычно делают так:
 
 ```python
 import json
-
-user = {
-    "id": 1,
-    "name": "Ivan",
-    "age": 25
-}
-
-r.set("user:1:json", json.dumps(user))
 ```
 
-Получить:
+Сохраняют словарь как JSON-строку.
 
 ```python
-data = r.get("user:1:json")
+import asyncio
+import json
+import redis.asyncio as redis
 
-user = json.loads(data)
 
-print(user["name"])
-```
+async def main():
+    r = redis.Redis(decode_responses=True)
 
----
-
-## Когда использовать JSON, а когда Hash?
-
-### Hash удобен, если:
-
-```text
-нужно часто менять отдельные поля
-нужно читать отдельные поля
-структура простая
-```
-
-Пример:
-
-```text
-user:1 -> name, age, email
-```
-
-### JSON удобен, если:
-
-```text
-объект сложный
-вложенные структуры
-читаешь и пишешь весь объект целиком
-```
-
-Пример:
-
-```json
-{
-  "id": 1,
-  "profile": {
-    "name": "Ivan",
-    "contacts": {
-      "email": "ivan@example.com"
+    user = {
+        "id": 1,
+        "name": "Ivan",
+        "age": 25,
     }
-  }
-}
+
+    await r.set("cache:user:1", json.dumps(user), ex=300)
+
+    raw = await r.get("cache:user:1")
+
+    if raw is not None:
+        user_from_cache = json.loads(raw)
+        print(user_from_cache)
+
+    await r.aclose()
+
+
+asyncio.run(main())
 ```
 
----
-
-# 17. Кэширование
-
-Кэш — одно из самых популярных применений Redis.
-
----
-
-## 17.1 Зачем нужен кэш
-
-Допустим, есть медленная функция:
+Важно:
 
 ```python
-def get_user_from_database(user_id):
-    # долгий запрос в PostgreSQL
-    ...
+json.dumps()
 ```
 
-Если много пользователей запрашивают одни и те же данные, можно:
+превращает Python-объект в строку.
 
-1. Сначала проверить Redis.
-2. Если данные есть — вернуть из Redis.
-3. Если данных нет — сходить в БД.
-4. Сохранить результат в Redis.
-5. Вернуть данные.
+```python
+json.loads()
+```
 
-Это называется **cache-aside pattern**.
+превращает строку обратно в Python-объект.
 
 ---
 
-## 17.2 Cache-aside пример
+# 31. Кэширование: главная идея
+
+Кэш нужен, чтобы не ходить каждый раз в медленную базу.
+
+Обычная схема:
+
+```text
+1. Проверяем Redis
+2. Если данные есть — возвращаем
+3. Если данных нет — идём в PostgreSQL/API
+4. Кладём данные в Redis
+5. Возвращаем результат
+```
+
+Это называется **cache-aside**.
+
+---
+
+# 32. Пример cache-aside
+
+Допустим, у нас есть медленная функция:
 
 ```python
-import json
-import time
-
-def get_user_from_db(user_id: int):
-    print("Идём в базу данных...")
-    time.sleep(2)
+async def get_user_from_database(user_id: int) -> dict:
+    await asyncio.sleep(2)
 
     return {
         "id": user_id,
         "name": "Ivan",
-        "age": 25
+        "age": 25,
+    }
+```
+
+Теперь добавим Redis-кэш:
+
+```python
+import asyncio
+import json
+import redis.asyncio as redis
+
+
+async def get_user_from_database(user_id: int) -> dict:
+    print("Getting from database...")
+    await asyncio.sleep(2)
+
+    return {
+        "id": user_id,
+        "name": "Ivan",
+        "age": 25,
     }
 
 
-def get_user(user_id: int):
+async def get_user(user_id: int, r: redis.Redis) -> dict:
     cache_key = f"cache:user:{user_id}"
 
-    cached_user = r.get(cache_key)
+    cached = await r.get(cache_key)
 
-    if cached_user is not None:
-        print("Берём из Redis")
-        return json.loads(cached_user)
+    if cached is not None:
+        print("Getting from cache...")
+        return json.loads(cached)
 
-    print("В Redis нет, берём из БД")
+    user = await get_user_from_database(user_id)
 
-    user = get_user_from_db(user_id)
-
-    r.setex(
+    await r.set(
         cache_key,
-        60,
-        json.dumps(user)
+        json.dumps(user),
+        ex=300,
     )
 
     return user
 
 
-print(get_user(1))
-print(get_user(1))
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    user = await get_user(1, r)
+    print(user)
+
+    user = await get_user(1, r)
+    print(user)
+
+    await r.aclose()
+
+
+asyncio.run(main())
 ```
 
-Первый вызов:
+Первый вызов будет 2 секунды.
 
-```text
-В Redis нет, берём из БД
-Идём в базу данных...
-```
-
-Второй вызов:
-
-```text
-Берём из Redis
-```
+Второй вызов будет почти мгновенным.
 
 ---
 
-## 17.3 Инвалидация кэша
+# 33. Инвалидация кэша
 
-Главная сложность кэша — понять, когда его удалять.
+Инвалидация — это удаление или обновление кэша, когда данные изменились.
 
-Если пользователь изменился в базе, старый кэш нужно удалить.
+Например, пользователь изменил имя.
+
+Плохой вариант:
+
+```text
+В базе имя уже новое, а в Redis всё ещё старое.
+```
+
+Правильный вариант:
 
 ```python
-def update_user(user_id: int, new_name: str):
-    # 1. Обновили в БД
-    print("Обновляем пользователя в БД")
+async def update_user_name(user_id: int, new_name: str, r: redis.Redis):
+    # 1. Обновили в базе
+    # await update_user_in_database(user_id, new_name)
 
     # 2. Удалили кэш
-    r.delete(f"cache:user:{user_id}")
+    await r.delete(f"cache:user:{user_id}")
 ```
 
-Правило:
-
-```text
-Изменил данные в основной БД -> удали или обнови кэш.
-```
+Обычно проще удалить кэш, чем пытаться обновлять его вручную.
 
 ---
 
-## 17.4 Типичные ошибки кэширования
-
-### Ошибка 1
-
-Хранить кэш без TTL.
-
-Плохо:
-
-```python
-r.set("cache:user:1", json.dumps(user))
-```
-
-Лучше:
-
-```python
-r.setex("cache:user:1", 300, json.dumps(user))
-```
-
----
-
-### Ошибка 2
-
-Забыть инвалидировать кэш.
-
-```text
-В БД пользователь уже Petr,
-а Redis всё ещё хранит Ivan.
-```
-
----
-
-### Ошибка 3
-
-Кэшировать всё подряд.
-
-Не надо кэшировать данные, которые:
-
-```text
-постоянно меняются
-почти не читаются
-слишком большие
-не нужны часто
-```
-
----
-
-# 18. Pipeline
-
-## 18.1 Проблема многих запросов
-
-Если сделать 1000 команд Redis по одной:
-
-```python
-for i in range(1000):
-    r.set(f"key:{i}", i)
-```
-
-Python 1000 раз отправит запрос в Redis и 1000 раз получит ответ.
-
-Это может быть медленно из-за сетевых задержек.
-
----
-
-## 18.2 Pipeline
-
-Pipeline позволяет отправить много команд пачкой.
-
-```python
-pipe = r.pipeline()
-
-for i in range(1000):
-    pipe.set(f"key:{i}", i)
-
-pipe.execute()
-```
-
-Команды отправятся вместе.
-
----
-
-## 18.3 Пример чтения пачкой
-
-```python
-pipe = r.pipeline()
-
-for i in range(10):
-    pipe.get(f"key:{i}")
-
-results = pipe.execute()
-
-print(results)
-```
-
----
-
-## 18.4 Когда использовать pipeline
-
-Используй pipeline, когда:
-
-```text
-нужно выполнить много независимых команд
-нужно уменьшить количество round-trip запросов
-```
-
-Например:
-
-```text
-загрузить 1000 ключей
-обновить 500 счётчиков
-получить много значений
-```
-
----
-
-# 19. Атомарность
-
-## 19.1 Что такое атомарность
-
-Атомарная операция — это операция, которая выполняется целиком и не может быть прервана в середине.
-
-Например:
-
-```python
-r.incr("counter")
-```
-
-Это атомарно.
-
-Даже если 100 клиентов одновременно сделают `INCR`, Redis корректно увеличит счётчик.
-
----
-
-## 19.2 Неатомарный пример
-
-Плохо:
-
-```python
-value = r.get("counter")
-value = int(value)
-value += 1
-r.set("counter", value)
-```
+# 34. Cache stampede
 
 Проблема:
 
+1. Кэш истёк.
+2. Пришло 1000 запросов.
+3. Все 1000 пошли в базу.
+4. База перегрузилась.
+
+Решения:
+
+1. Блокировка на пересоздание кэша.
+2. Разный TTL с небольшим random.
+3. Фоновое обновление кэша.
+4. Использовать stale cache.
+
+Простой вариант с random TTL:
+
+```python
+import random
+
+ttl = 300 + random.randint(0, 60)
+await r.set(cache_key, value, ex=ttl)
+```
+
+---
+
+# 35. Pipeline
+
+Pipeline позволяет отправить несколько команд Redis одним пакетом.
+
+Без pipeline:
+
 ```text
-Клиент A прочитал 10
-Клиент B прочитал 10
-Клиент A записал 11
-Клиент B записал 11
+команда -> ответ
+команда -> ответ
+команда -> ответ
 ```
 
-Хотя должно быть 12.
+С pipeline:
 
-Правильно:
-
-```python
-r.incr("counter")
+```text
+команда
+команда
+команда
+-> ответы
 ```
 
----
-
-# 20. Transactions: MULTI / EXEC
-
-Redis поддерживает транзакции.
-
-В redis-py pipeline по умолчанию работает как транзакция.
-
-```python
-pipe = r.pipeline(transaction=True)
-
-pipe.set("a", 1)
-pipe.set("b", 2)
-pipe.incr("counter")
-
-results = pipe.execute()
-
-print(results)
-```
-
-Команды будут выполнены последовательно одним блоком.
-
----
-
-# 21. WATCH: оптимистическая блокировка
-
-`WATCH` нужен, когда ты хочешь:
-
-1. Прочитать значение.
-2. Посчитать новое.
-3. Записать.
-4. Но только если за это время значение никто не изменил.
-
----
-
-## Пример: безопасное списание баланса
-
-```python
-import redis
-
-def withdraw(user_id: int, amount: int):
-    key = f"user:{user_id}:balance"
-
-    with r.pipeline() as pipe:
-        while True:
-            try:
-                pipe.watch(key)
-
-                balance = pipe.get(key)
-
-                if balance is None:
-                    pipe.unwatch()
-                    return False
-
-                balance = int(balance)
-
-                if balance < amount:
-                    pipe.unwatch()
-                    return False
-
-                new_balance = balance - amount
-
-                pipe.multi()
-                pipe.set(key, new_balance)
-                pipe.execute()
-
-                return True
-
-            except redis.WatchError:
-                continue
-```
-
-Использование:
-
-```python
-r.set("user:1:balance", 100)
-
-print(withdraw(1, 30))
-print(r.get("user:1:balance"))
-```
-
----
-
-# 22. Lua-скрипты
-
-Redis может выполнять Lua-скрипты.
-
-Главный плюс: Lua-скрипт выполняется атомарно.
-
-То есть никто не вмешается между командами внутри скрипта.
-
----
-
-## 22.1 Пример: rate limiter через Lua
-
-Ограничим пользователя: максимум 5 запросов в минуту.
-
-```python
-lua_script = """
-local key = KEYS[1]
-local limit = tonumber(ARGV[1])
-local ttl = tonumber(ARGV[2])
-
-local current = redis.call("GET", key)
-
-if current and tonumber(current) >= limit then
-    return 0
-end
-
-current = redis.call("INCR", key)
-
-if current == 1 then
-    redis.call("EXPIRE", key, ttl)
-end
-
-return 1
-"""
-
-rate_limiter = r.register_script(lua_script)
-
-
-def is_allowed(user_id: int):
-    key = f"rate_limit:user:{user_id}"
-
-    result = rate_limiter(
-        keys=[key],
-        args=[5, 60]
-    )
-
-    return result == 1
-
-
-for i in range(10):
-    print(i, is_allowed(1))
-```
-
-Первые 5 запросов будут `True`, остальные `False`.
-
----
-
-# 23. Блокировки Redis
-
-Иногда нужно сделать так, чтобы только один процесс выполнял конкретную задачу.
+Это быстрее при большом количестве команд.
 
 Пример:
 
-```text
-нельзя одновременно два раза обработать один платёж
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    pipe = r.pipeline()
+
+    pipe.set("user:1:name", "Ivan")
+    pipe.set("user:2:name", "Anna")
+    pipe.get("user:1:name")
+    pipe.get("user:2:name")
+
+    results = await pipe.execute()
+
+    print(results)
+
+    await r.aclose()
+
+
+asyncio.run(main())
 ```
 
----
-
-## 23.1 Простая блокировка
+Результат:
 
 ```python
-lock = r.lock("lock:payment:100", timeout=10)
-
-with lock:
-    print("Обрабатываем платёж")
-```
-
-Если другой процесс попробует взять такой же lock, он будет ждать или получит ошибку в зависимости от настроек.
-
----
-
-## 23.2 Более явный пример
-
-```python
-def process_payment(payment_id: int):
-    lock_key = f"lock:payment:{payment_id}"
-
-    lock = r.lock(lock_key, timeout=30, blocking_timeout=5)
-
-    acquired = lock.acquire()
-
-    if not acquired:
-        print("Не удалось взять блокировку")
-        return False
-
-    try:
-        print("Обрабатываем платёж", payment_id)
-        return True
-    finally:
-        lock.release()
+[True, True, 'Ivan', 'Anna']
 ```
 
 ---
 
-## 23.3 Важные правила блокировок
+# 36. Транзакции Redis
 
-1. Всегда ставь `timeout`.
-2. Всегда освобождай lock в `finally`.
-3. Не держи lock долго.
-4. Не используй Redis-lock как замену полноценным транзакциям в БД для критичных денег.
-
----
-
-# 24. Pub/Sub
-
-## 24.1 Что такое Pub/Sub
-
-Pub/Sub — это механизм:
-
-```text
-один публикует сообщение
-другие получают
-```
-
-Пример:
-
-```text
-service A публикует "user_created"
-service B слушает и отправляет email
-service C слушает и пишет аналитику
-```
-
-Важно:
-
-```text
-Pub/Sub не хранит сообщения.
-Если подписчик был выключен, он пропустит сообщение.
-```
-
----
-
-## 24.2 Publisher
-
-publisher.py:
-
-```python
-import redis
-import json
-
-r = redis.Redis(decode_responses=True)
-
-message = {
-    "user_id": 1,
-    "event": "user_created"
-}
-
-r.publish("events", json.dumps(message))
-```
-
----
-
-## 24.3 Subscriber
-
-subscriber.py:
-
-```python
-import redis
-import json
-
-r = redis.Redis(decode_responses=True)
-
-pubsub = r.pubsub()
-pubsub.subscribe("events")
-
-print("Ждём сообщения...")
-
-for message in pubsub.listen():
-    if message["type"] != "message":
-        continue
-
-    data = json.loads(message["data"])
-    print("Получено:", data)
-```
-
----
-
-## 24.4 Когда использовать Pub/Sub
-
-Подходит:
-
-```text
-уведомления между сервисами
-онлайн-события
-обновление локальных кэшей
-простые real-time события
-```
-
-Не подходит:
-
-```text
-надёжные очереди
-гарантированная доставка
-важные бизнес-события
-```
-
-Для надёжных очередей лучше Redis Streams, RabbitMQ, Kafka, Celery.
-
----
-
-# 25. Redis Streams
-
-## 25.1 Что такое Stream
-
-Stream — это журнал событий.
-
-В отличие от Pub/Sub, сообщения сохраняются.
-
-Пример:
-
-```text
-orders_stream:
-    1690000000000-0 -> order_id=1 status=created
-    1690000000001-0 -> order_id=2 status=created
-```
-
----
-
-## 25.2 XADD
-
-Добавить событие:
-
-```python
-event_id = r.xadd(
-    "orders",
-    {
-        "order_id": 1,
-        "status": "created"
-    }
-)
-
-print(event_id)
-```
-
----
-
-## 25.3 XREAD
-
-Читать события:
-
-```python
-messages = r.xread(
-    streams={
-        "orders": "0-0"
-    },
-    count=10,
-    block=1000
-)
-
-print(messages)
-```
-
----
-
-## 25.4 Consumer Groups
-
-Consumer Group позволяет нескольким воркерам читать один stream и делить работу.
-
-Создать группу:
-
-```python
-try:
-    r.xgroup_create(
-        name="orders",
-        groupname="workers",
-        id="0-0",
-        mkstream=True
-    )
-except redis.ResponseError as e:
-    if "BUSYGROUP" not in str(e):
-        raise
-```
-
-Читать как consumer:
-
-```python
-messages = r.xreadgroup(
-    groupname="workers",
-    consumername="worker-1",
-    streams={
-        "orders": ">"
-    },
-    count=10,
-    block=5000
-)
-
-print(messages)
-```
-
-Подтвердить обработку:
-
-```python
-r.xack("orders", "workers", event_id)
-```
-
----
-
-## 25.5 Полный пример Streams worker
-
-```python
-import redis
-import time
-
-r = redis.Redis(decode_responses=True)
-
-STREAM = "orders"
-GROUP = "order_workers"
-CONSUMER = "worker_1"
-
-
-def create_group():
-    try:
-        r.xgroup_create(
-            name=STREAM,
-            groupname=GROUP,
-            id="0-0",
-            mkstream=True
-        )
-    except redis.ResponseError as e:
-        if "BUSYGROUP" not in str(e):
-            raise
-
-
-def add_order(order_id: int):
-    r.xadd(
-        STREAM,
-        {
-            "order_id": order_id,
-            "status": "created"
-        }
-    )
-
-
-def worker():
-    while True:
-        messages = r.xreadgroup(
-            groupname=GROUP,
-            consumername=CONSUMER,
-            streams={STREAM: ">"},
-            count=1,
-            block=5000
-        )
-
-        if not messages:
-            print("Нет новых сообщений")
-            continue
-
-        for stream_name, stream_messages in messages:
-            for message_id, data in stream_messages:
-                try:
-                    print("Обрабатываем:", message_id, data)
-
-                    time.sleep(1)
-
-                    r.xack(STREAM, GROUP, message_id)
-
-                    print("Подтвердили:", message_id)
-
-                except Exception as e:
-                    print("Ошибка:", e)
-
-
-create_group()
-add_order(1)
-add_order(2)
-worker()
-```
-
----
-
-# 26. SCAN вместо KEYS
-
-## 26.1 KEYS
-
-Команда:
+Redis поддерживает транзакции через:
 
 ```redis
-KEYS *
+MULTI
+EXEC
 ```
 
-показывает все ключи.
+Команды в транзакции выполняются последовательно и атомарно.
 
 В Python:
 
 ```python
-keys = r.keys("*")
+pipe = r.pipeline(transaction=True)
 ```
 
-Но на продакшене `KEYS *` опасна.
+Пример:
 
-Почему?
+```python
+import asyncio
+import redis.asyncio as redis
 
-Потому что если ключей миллионы, Redis может зависнуть на время выполнения команды.
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    pipe = r.pipeline(transaction=True)
+
+    pipe.incr("counter")
+    pipe.incr("counter")
+    pipe.get("counter")
+
+    result = await pipe.execute()
+    print(result)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
 
 ---
 
-## 26.2 SCAN
+# 37. WATCH — оптимистическая блокировка
 
-Лучше использовать `SCAN`.
+`WATCH` используется, когда нужно:
+
+1. прочитать значение;
+2. принять решение;
+3. записать новое значение;
+4. но только если за это время ключ никто не изменил.
+
+Пример: списание денег.
+
+```python
+import asyncio
+from redis.exceptions import WatchError
+import redis.asyncio as redis
+
+
+async def withdraw(r: redis.Redis, user_id: int, amount: int):
+    key = f"user:{user_id}:balance"
+
+    while True:
+        try:
+            async with r.pipeline() as pipe:
+                await pipe.watch(key)
+
+                balance_raw = await pipe.get(key)
+                balance = int(balance_raw or 0)
+
+                if balance < amount:
+                    await pipe.unwatch()
+                    return False
+
+                pipe.multi()
+                pipe.set(key, balance - amount)
+
+                await pipe.execute()
+                return True
+
+        except WatchError:
+            continue
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    await r.set("user:1:balance", 100)
+
+    result = await withdraw(r, 1, 30)
+    print(result)
+
+    balance = await r.get("user:1:balance")
+    print(balance)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+Если кто-то изменит баланс между `WATCH` и `EXEC`, Redis отменит транзакцию.
+
+---
+
+# 38. Атомарность команд
+
+Многие команды Redis атомарны сами по себе.
+
+Например:
+
+```redis
+INCR counter
+```
+
+Если 100 клиентов одновременно сделают `INCR`, Redis корректно увеличит счётчик 100 раз.
+
+То есть не нужно делать:
+
+```python
+value = await r.get("counter")
+value += 1
+await r.set("counter", value)
+```
+
+Это опасно при конкурентности.
+
+Правильно:
+
+```python
+await r.incr("counter")
+```
+
+---
+
+# 39. Rate limiter на Redis
+
+Rate limiter ограничивает количество действий.
+
+Например:
+
+> Пользователь может сделать максимум 5 запросов за 60 секунд.
+
+Простой вариант:
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def is_allowed(r: redis.Redis, user_id: int) -> bool:
+    key = f"rate_limit:user:{user_id}"
+
+    current = await r.incr(key)
+
+    if current == 1:
+        await r.expire(key, 60)
+
+    return current <= 5
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    for i in range(10):
+        allowed = await is_allowed(r, 1)
+        print(i, allowed)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+Как работает:
+
+1. Первый запрос создаёт ключ и ставит TTL 60 секунд.
+2. Каждый запрос увеличивает счётчик.
+3. Если счётчик больше 5 — запрещаем.
+
+Минус:
+
+В редких случаях между `INCR` и `EXPIRE` может произойти сбой.
+
+Более надёжно использовать Lua-скрипт.
+
+---
+
+# 40. Lua-скрипты в Redis
+
+Redis умеет выполнять Lua-скрипты атомарно.
+
+Пример rate limiter:
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+RATE_LIMIT_SCRIPT = """
+local current
+current = redis.call("INCR", KEYS[1])
+
+if tonumber(current) == 1 then
+    redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+
+return current
+"""
+
+
+async def is_allowed(r: redis.Redis, user_id: int) -> bool:
+    key = f"rate_limit:user:{user_id}"
+
+    current = await r.eval(
+        RATE_LIMIT_SCRIPT,
+        1,
+        key,
+        60,
+    )
+
+    return int(current) <= 5
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    for i in range(10):
+        allowed = await is_allowed(r, 1)
+        print(i, allowed)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+`EVAL` параметры:
+
+```python
+await r.eval(script, number_of_keys, key1, arg1, arg2)
+```
+
+---
+
+# 41. Распределённая блокировка
+
+Иногда нужно сделать так, чтобы только один процесс выполнял действие.
+
+Пример:
+
+- только один воркер обрабатывает заказ;
+- только один сервер обновляет кэш;
+- только один процесс запускает cron-задачу.
+
+Простая блокировка:
+
+```python
+import uuid
+import redis.asyncio as redis
+
+
+async def acquire_lock(r: redis.Redis, key: str, ttl: int = 10) -> str | None:
+    token = str(uuid.uuid4())
+
+    acquired = await r.set(
+        key,
+        token,
+        nx=True,
+        ex=ttl,
+    )
+
+    if acquired:
+        return token
+
+    return None
+```
+
+Почему нужен token?
+
+Потому что удалять блокировку должен только тот, кто её создал.
+
+Плохой вариант:
+
+```python
+await r.delete("lock:order:1")
+```
+
+Может удалить чужую блокировку.
+
+Правильное удаление через Lua:
+
+```python
+RELEASE_LOCK_SCRIPT = """
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+else
+    return 0
+end
+"""
+```
+
+Полный пример:
+
+```python
+import asyncio
+import uuid
+import redis.asyncio as redis
+
+
+RELEASE_LOCK_SCRIPT = """
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+else
+    return 0
+end
+"""
+
+
+async def acquire_lock(r: redis.Redis, key: str, ttl: int = 10) -> str | None:
+    token = str(uuid.uuid4())
+
+    acquired = await r.set(key, token, nx=True, ex=ttl)
+
+    if acquired:
+        return token
+
+    return None
+
+
+async def release_lock(r: redis.Redis, key: str, token: str):
+    await r.eval(RELEASE_LOCK_SCRIPT, 1, key, token)
+
+
+async def process_order(r: redis.Redis, order_id: int):
+    lock_key = f"lock:order:{order_id}"
+
+    token = await acquire_lock(r, lock_key, ttl=30)
+
+    if token is None:
+        print("Order is already processing")
+        return
+
+    try:
+        print("Processing order...")
+        await asyncio.sleep(5)
+        print("Done")
+    finally:
+        await release_lock(r, lock_key, token)
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    await asyncio.gather(
+        process_order(r, 1),
+        process_order(r, 1),
+    )
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+---
+
+# 42. Pub/Sub из Python
+
+## Subscriber
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def subscriber():
+    r = redis.Redis(decode_responses=True)
+
+    pubsub = r.pubsub()
+
+    await pubsub.subscribe("news")
+
+    print("Subscribed to news")
+
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            print("Received:", message["data"])
+
+
+asyncio.run(subscriber())
+```
+
+## Publisher
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def publisher():
+    r = redis.Redis(decode_responses=True)
+
+    await r.publish("news", "Hello from Python")
+
+    await r.aclose()
+
+
+asyncio.run(publisher())
+```
+
+Важно:
+
+Pub/Sub подходит только для online-доставки.
+
+Если subscriber выключен — сообщения потеряются.
+
+---
+
+# 43. Streams из Python
+
+## Добавить сообщение
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    message_id = await r.xadd(
+        "orders",
+        {
+            "user_id": "1",
+            "amount": "500",
+        },
+    )
+
+    print(message_id)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+---
+
+## Читать Stream
+
+```python
+import asyncio
+import redis.asyncio as redis
+
+
+async def main():
+    r = redis.Redis(decode_responses=True)
+
+    messages = await r.xread(
+        streams={"orders": "0"},
+        count=10,
+        block=5000,
+    )
+
+    print(messages)
+
+    await r.aclose()
+
+
+asyncio.run(main())
+```
+
+---
+
+## Consumer Group
+
+Создание группы:
+
+```python
+import asyncio
+import redis.asyncio as redis
+from redis.exceptions import ResponseError
+
+
+async def create_group(r: redis.Redis):
+    try:
+        await r.xgroup_create(
+            name="orders",
+            groupname="order_workers",
+            id="$",
+            mkstream=True,
+        )
+    except ResponseError as e:
+        if "BUSYGROUP" in str(e):
+            pass
+        else:
+            raise
+```
+
+Consumer:
+
+```python
+import asyncio
+import redis.asyncio as redis
+from redis.exceptions import ResponseError
+
+
+async def create_group(r: redis.Redis):
+    try:
+        await r.xgroup_create(
+            name="orders",
+            groupname="order_workers",
+            id="$",
+            mkstream=True,
+        )
+    except ResponseError as e:
+        if "BUSYGROUP" not in str(e):
+            raise
+
+
+async def worker(worker_name: str):
+    r = redis.Redis(decode_responses=True)
+
+    await create_group(r)
+
+    while True:
+        response = await r.xreadgroup(
+            groupname="order_workers",
+            consumername=worker_name,
+            streams={"orders": ">"},
+            count=1,
+            block=5000,
+        )
+
+        if not response:
+            continue
+
+        for stream_name, messages in response:
+            for message_id, data in messages:
+                print(worker_name, "processing", message_id, data)
+
+                try:
+                    await asyncio.sleep(1)
+
+                    await r.xack("orders", "order_workers", message_id)
+                    print(worker_name, "done", message_id)
+
+                except Exception as e:
+                    print("Error:", e)
+
+
+asyncio.run(worker("worker-1"))
+```
+
+---
+
+# 44. SCAN вместо KEYS
+
+Плохо:
+
+```python
+keys = await r.keys("*")
+```
+
+Почему плохо?
+
+Потому что Redis может зависнуть, если ключей много.
+
+Правильно:
 
 ```python
 cursor = 0
 
 while True:
-    cursor, keys = r.scan(cursor=cursor, match="user:*", count=100)
+    cursor, keys = await r.scan(
+        cursor=cursor,
+        match="cache:user:*",
+        count=100,
+    )
 
     for key in keys:
         print(key)
@@ -1936,44 +2108,190 @@ while True:
 
 ---
 
-## 26.3 scan_iter
+# 45. Удаление большого количества ключей
 
-В redis-py есть удобный вариант:
+Если ключей много, не надо делать:
+
+```redis
+KEYS cache:* 
+DEL ...
+```
+
+Лучше:
 
 ```python
-for key in r.scan_iter("user:*", count=100):
-    print(key)
+async def delete_by_pattern(r: redis.Redis, pattern: str):
+    cursor = 0
+
+    while True:
+        cursor, keys = await r.scan(
+            cursor=cursor,
+            match=pattern,
+            count=500,
+        )
+
+        if keys:
+            await r.delete(*keys)
+
+        if cursor == 0:
+            break
 ```
 
 ---
 
-# 27. Удаление ключей: DEL и UNLINK
+# 46. Connection Pool
 
-## DEL
+Redis-клиент использует пул соединений.
+
+Не нужно создавать новый клиент на каждый запрос.
+
+Плохо:
 
 ```python
-r.delete("key")
+async def handler():
+    r = redis.Redis()
+    await r.get("key")
+    await r.aclose()
 ```
 
-Удаляет ключ синхронно.
+Так делать плохо в веб-приложении.
+
+Лучше создать один клиент на всё приложение.
+
+Например, в FastAPI:
+
+```python
+from contextlib import asynccontextmanager
+
+import redis.asyncio as redis
+from fastapi import FastAPI
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis = redis.from_url(
+        "redis://localhost:6379/0",
+        decode_responses=True,
+    )
+
+    yield
+
+    await app.state.redis.aclose()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/ping")
+async def ping():
+    result = await app.state.redis.ping()
+    return {"redis": result}
+```
 
 ---
 
-## UNLINK
+# 47. Пример FastAPI + Redis cache
 
-```python
-r.unlink("key")
+Установка:
+
+```bash
+pip install fastapi uvicorn redis
 ```
 
-Удаляет ключ асинхронно в фоне.
+`main.py`:
 
-Для больших ключей `UNLINK` лучше, чем `DEL`.
+```python
+import asyncio
+import json
+from contextlib import asynccontextmanager
+
+import redis.asyncio as redis
+from fastapi import FastAPI, Request
+
+
+async def fake_db_get_user(user_id: int):
+    await asyncio.sleep(2)
+
+    return {
+        "id": user_id,
+        "name": "Ivan",
+        "age": 25,
+    }
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis = redis.from_url(
+        "redis://localhost:6379/0",
+        decode_responses=True,
+    )
+
+    yield
+
+    await app.state.redis.aclose()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: int, request: Request):
+    r: redis.Redis = request.app.state.redis
+
+    cache_key = f"cache:user:{user_id}"
+
+    cached = await r.get(cache_key)
+
+    if cached:
+        return {
+            "source": "cache",
+            "data": json.loads(cached),
+        }
+
+    user = await fake_db_get_user(user_id)
+
+    await r.set(
+        cache_key,
+        json.dumps(user),
+        ex=60,
+    )
+
+    return {
+        "source": "database",
+        "data": user,
+    }
+
+
+@app.delete("/users/{user_id}/cache")
+async def delete_user_cache(user_id: int, request: Request):
+    r: redis.Redis = request.app.state.redis
+
+    await r.delete(f"cache:user:{user_id}")
+
+    return {"status": "deleted"}
+```
+
+Запуск:
+
+```bash
+uvicorn main:app --reload
+```
+
+Первый запрос:
+
+```text
+GET http://127.0.0.1:8000/users/1
+```
+
+Будет медленный.
+
+Второй запрос будет быстрый.
 
 ---
 
-# 28. Persistence: хранение данных на диске
+# 48. Persistence: как Redis сохраняет данные
 
-Redis хранит данные в RAM, но может сохранять их на диск.
+Redis хранит данные в памяти, но умеет сохранять на диск.
 
 Есть два основных механизма:
 
@@ -1982,124 +2300,88 @@ Redis хранит данные в RAM, но может сохранять их 
 
 ---
 
-## 28.1 RDB
+## RDB
 
 RDB — это snapshot.
 
-Redis периодически сохраняет снимок данных на диск.
+Redis периодически делает снимок данных и сохраняет на диск.
 
 Плюсы:
 
-```text
-компактный файл
-быстро восстанавливается
-хорошо для бэкапов
-```
+- компактный файл;
+- быстро восстанавливается;
+- хорошо для бэкапов.
 
 Минусы:
 
-```text
-можно потерять данные между snapshot-ами
-```
-
-Например Redis сохраняет snapshot раз в 5 минут.  
-Если сервер упал, можно потерять последние 5 минут данных.
+- можно потерять последние изменения после snapshot.
 
 ---
 
-## 28.2 AOF
+## AOF
 
 AOF — Append Only File.
 
-Redis записывает каждую команду изменения в лог.
-
-Пример:
-
-```text
-SET name Ivan
-INCR counter
-HSET user:1 name Ivan
-```
-
-При перезапуске Redis проигрывает эти команды заново.
+Redis записывает каждую изменяющую команду в лог.
 
 Плюсы:
 
-```text
-меньше риск потери данных
-```
+- меньше риск потери данных;
+- можно восстановить почти все операции.
 
 Минусы:
 
-```text
-файл может быть больше
-восстановление может быть дольше
-```
+- файл может быть больше;
+- может быть медленнее RDB.
 
 ---
 
-## 28.3 appendfsync
+## Что выбрать
 
-Настройка AOF:
+Для кэша часто persistence вообще не критична.
 
-```text
-appendfsync always
-appendfsync everysec
-appendfsync no
-```
+Для важных данных можно включать AOF.
 
-Самый популярный вариант:
-
-```text
-appendfsync everysec
-```
-
-Это означает:
-
-```text
-сохранять на диск примерно раз в секунду
-```
+Но Redis обычно не должен быть единственным хранилищем критически важных данных, если ты не понимаешь хорошо persistence, replication и backup.
 
 ---
 
-## 28.4 Redis через Docker с AOF
+# 49. Eviction policy
 
-```bash
-docker run --name redis-aof \
-  -p 6379:6379 \
-  -d redis:7 redis-server --appendonly yes
-```
+Redis работает в памяти.
 
----
+Если память закончится, Redis должен решить, что делать.
 
-# 29. Eviction: что делать, если память закончилась
-
-Redis работает в памяти. Память не бесконечная.
-
-Можно настроить максимум памяти:
+Настройка:
 
 ```text
-maxmemory 512mb
+maxmemory
+maxmemory-policy
 ```
 
-И политику удаления:
+Политики:
 
-```text
-maxmemory-policy allkeys-lru
-```
+## noeviction
 
----
+Не удалять ключи, а возвращать ошибку при записи.
 
-## Основные политики
+## allkeys-lru
 
-| Политика | Что делает |
-|---|---|
-| noeviction | не удаляет, новые записи получают ошибку |
-| allkeys-lru | удаляет наименее недавно использованные ключи |
-| volatile-lru | удаляет LRU только среди ключей с TTL |
-| allkeys-random | удаляет случайные ключи |
-| volatile-ttl | удаляет ключи с ближайшим истечением TTL |
-| allkeys-lfu | удаляет наименее часто используемые |
+Удалять наименее недавно используемые ключи среди всех ключей.
+
+Хорошо для кэша.
+
+## volatile-lru
+
+Удалять наименее недавно используемые ключи только среди ключей с TTL.
+
+## allkeys-random
+
+Удалять случайные ключи.
+
+## volatile-ttl
+
+Удалять ключи с ближайшим истечением TTL.
 
 Для кэша часто используют:
 
@@ -2110,95 +2392,91 @@ allkeys-lru
 или:
 
 ```text
-allkeys-lfu
+volatile-lru
 ```
 
 ---
 
-# 30. Безопасность Redis
+# 50. Безопасность Redis
 
-## 30.1 Redis не должен быть открыт в интернет
-
-Очень важно:
-
-```text
-Никогда не открывай Redis наружу без защиты.
-```
+Redis нельзя просто так открывать в интернет.
 
 Плохо:
 
 ```text
-0.0.0.0:6379 доступен всем из интернета
+0.0.0.0:6379 без пароля
 ```
 
-Redis должен быть доступен только приложению.
+Правильно:
 
----
+1. Не открывать Redis наружу.
+2. Использовать private network.
+3. Включить пароль.
+4. Использовать ACL.
+5. Ограничить доступ firewall.
+6. Использовать TLS при необходимости.
 
-## 30.2 Пароль
-
-Запуск с паролем:
+Пример запуска Docker с паролем:
 
 ```bash
-docker run --name redis-secure \
-  -p 6379:6379 \
-  -d redis:7 redis-server --requirepass mypassword
+docker run --name redis-secure -p 6379:6379 -d redis:7 redis-server --requirepass my_password
+```
+
+Подключение:
+
+```bash
+redis-cli -a my_password
 ```
 
 Python:
 
 ```python
-r = redis.Redis(
-    host="localhost",
-    port=6379,
-    password="mypassword",
-    decode_responses=True
+r = redis.from_url(
+    "redis://:my_password@localhost:6379/0",
+    decode_responses=True,
 )
 ```
 
 ---
 
-## 30.3 ACL
+# 51. Мониторинг Redis
 
-В Redis 6+ есть ACL — пользователи и права.
+Полезные команды:
 
-Пример в redis-cli:
-
-```redis
-ACL SETUSER appuser on >strongpassword ~app:* +get +set +del
-```
-
-Это означает:
-
-```text
-пользователь appuser включён
-пароль strongpassword
-может работать только с ключами app:*
-разрешены команды get/set/del
-```
-
----
-
-# 31. Мониторинг Redis
-
-## 31.1 INFO
-
-```python
-info = r.info()
-
-print(info["used_memory_human"])
-print(info["connected_clients"])
-```
-
-В CLI:
+## INFO
 
 ```redis
 INFO
 ```
 
----
+Показывает много информации.
 
-## 31.2 SLOWLOG
+Например:
+
+```redis
+INFO memory
+INFO clients
+INFO stats
+INFO persistence
+```
+
+## DBSIZE
+
+Количество ключей в текущей базе:
+
+```redis
+DBSIZE
+```
+
+## MEMORY USAGE
+
+Сколько памяти занимает ключ:
+
+```redis
+MEMORY USAGE cache:user:1
+```
+
+## SLOWLOG
 
 Показать медленные команды:
 
@@ -2206,428 +2484,70 @@ INFO
 SLOWLOG GET 10
 ```
 
-Python:
+## CLIENT LIST
 
-```python
-logs = r.slowlog_get(10)
-
-for log in logs:
-    print(log)
-```
-
----
-
-## 31.3 MEMORY USAGE
-
-```python
-memory = r.memory_usage("user:1")
-print(memory)
-```
-
----
-
-## 31.4 MONITOR
+Показать подключенных клиентов:
 
 ```redis
-MONITOR
-```
-
-Показывает все команды в реальном времени.
-
-На продакшене использовать осторожно.
-
----
-
-# 32. Connection Pool
-
-redis-py по умолчанию использует пул соединений.
-
-Но можно создать явно:
-
-```python
-pool = redis.ConnectionPool(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True,
-    max_connections=20
-)
-
-r = redis.Redis(connection_pool=pool)
-```
-
-Это полезно в web-приложениях.
-
----
-
-# 33. Таймауты и устойчивость
-
-Лучше не создавать Redis-клиент совсем без таймаутов.
-
-```python
-r = redis.Redis(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True,
-    socket_timeout=3,
-    socket_connect_timeout=3,
-    health_check_interval=30
-)
-```
-
-Параметры:
-
-```python
-socket_timeout=3
-```
-
-Максимальное время ожидания ответа.
-
-```python
-socket_connect_timeout=3
-```
-
-Максимальное время подключения.
-
-```python
-health_check_interval=30
-```
-
-Периодическая проверка соединения.
-
----
-
-# 34. Async Redis в Python
-
-Если используешь async-приложение, например FastAPI, можно использовать async Redis.
-
-```python
-import redis.asyncio as redis
-
-async def main():
-    r = redis.Redis(
-        host="localhost",
-        port=6379,
-        decode_responses=True
-    )
-
-    await r.set("name", "Ivan")
-    name = await r.get("name")
-
-    print(name)
-
-    await r.aclose()
+CLIENT LIST
 ```
 
 ---
 
-## Пример с FastAPI
+# 52. Частые ошибки новичков
 
-```python
-from fastapi import FastAPI
-import redis.asyncio as redis
+## Ошибка 1. Использовать KEYS на production
 
-app = FastAPI()
+Плохо:
 
-redis_client: redis.Redis | None = None
+```redis
+KEYS *
+```
 
+Лучше:
 
-@app.on_event("startup")
-async def startup():
-    global redis_client
-    redis_client = redis.Redis(
-        host="localhost",
-        port=6379,
-        decode_responses=True
-    )
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await redis_client.aclose()
-
-
-@app.get("/counter")
-async def counter():
-    value = await redis_client.incr("api:counter")
-    return {"counter": value}
+```redis
+SCAN
 ```
 
 ---
 
-# 35. Реальный пример: сервис кэша пользователей
-
-Допустим, у нас есть приложение, где пользователи хранятся в БД.
-
-Для примера БД заменим словарём.
-
-```python
-import redis
-import json
-import time
-
-r = redis.Redis(decode_responses=True)
-
-DATABASE = {
-    1: {
-        "id": 1,
-        "name": "Ivan",
-        "age": 25
-    },
-    2: {
-        "id": 2,
-        "name": "Maria",
-        "age": 30
-    }
-}
-
-
-def get_user_from_db(user_id: int):
-    print("Запрос в БД...")
-    time.sleep(1)
-    return DATABASE.get(user_id)
-
-
-def get_user(user_id: int):
-    cache_key = f"cache:user:{user_id}"
-
-    cached = r.get(cache_key)
-
-    if cached is not None:
-        print("Из Redis")
-        return json.loads(cached)
-
-    print("Из БД")
-    user = get_user_from_db(user_id)
-
-    if user is None:
-        return None
-
-    r.setex(
-        cache_key,
-        60,
-        json.dumps(user)
-    )
-
-    return user
-
-
-def update_user(user_id: int, name: str, age: int):
-    if user_id not in DATABASE:
-        return None
-
-    DATABASE[user_id]["name"] = name
-    DATABASE[user_id]["age"] = age
-
-    r.delete(f"cache:user:{user_id}")
-
-    return DATABASE[user_id]
-
-
-print(get_user(1))
-print(get_user(1))
-
-update_user(1, "Petr", 26)
-
-print(get_user(1))
-```
-
----
-
-# 36. Rate Limiting
-
-Rate limiting — ограничение частоты запросов.
-
-Например:
-
-```text
-один пользователь может сделать максимум 100 запросов в минуту
-```
-
----
-
-## 36.1 Простой fixed window limiter
-
-```python
-def is_request_allowed(user_id: int, limit: int = 100, window: int = 60):
-    key = f"rate:user:{user_id}"
-
-    current = r.incr(key)
-
-    if current == 1:
-        r.expire(key, window)
-
-    if current > limit:
-        return False
-
-    return True
-```
-
-Использование:
-
-```python
-for i in range(105):
-    print(i, is_request_allowed(1, limit=5, window=60))
-```
-
----
-
-## 36.2 Недостаток fixed window
-
-Если окно 60 секунд:
-
-```text
-12:00:59 пользователь сделал 100 запросов
-12:01:00 пользователь сделал ещё 100 запросов
-```
-
-Фактически за 1 секунду он сделал 200 запросов.
-
-Для junior-уровня важно знать этот недостаток.
-
-Для более точных лимитов используют:
-
-```text
-sliding window
-token bucket
-leaky bucket
-```
-
----
-
-# 37. Сессии пользователей
-
-Redis часто используют для хранения сессий.
-
-```python
-import uuid
-import json
-
-def create_session(user_id: int):
-    session_id = str(uuid.uuid4())
-
-    key = f"session:{session_id}"
-
-    data = {
-        "user_id": user_id
-    }
-
-    r.setex(
-        key,
-        3600,
-        json.dumps(data)
-    )
-
-    return session_id
-
-
-def get_session(session_id: str):
-    key = f"session:{session_id}"
-
-    data = r.get(key)
-
-    if data is None:
-        return None
-
-    return json.loads(data)
-
-
-def delete_session(session_id: str):
-    r.delete(f"session:{session_id}")
-
-
-session_id = create_session(1)
-
-print(session_id)
-print(get_session(session_id))
-```
-
----
-
-# 38. Идемпотентность
-
-Идемпотентность — это когда повторный запрос не ломает систему.
-
-Пример:
-
-```text
-Клиент отправил оплату.
-Сеть зависла.
-Клиент повторил запрос.
-Нельзя списать деньги два раза.
-```
-
-Redis можно использовать для хранения idempotency key.
-
-```python
-def process_request(idempotency_key: str):
-    key = f"idempotency:{idempotency_key}"
-
-    was_set = r.set(key, "processing", nx=True, ex=3600)
-
-    if not was_set:
-        return "Запрос уже обрабатывался"
-
-    try:
-        print("Выполняем действие")
-        return "OK"
-    except Exception:
-        r.delete(key)
-        raise
-```
-
----
-
-# 39. Типичные ошибки новичков
-
-## Ошибка 1. Использовать KEYS на продакшене
+## Ошибка 2. Не ставить TTL для кэша
 
 Плохо:
 
 ```python
-r.keys("*")
+await r.set("cache:user:1", value)
 ```
 
 Лучше:
 
 ```python
-r.scan_iter("*")
+await r.set("cache:user:1", value, ex=300)
 ```
 
 ---
 
-## Ошибка 2. Не ставить TTL кэшу
+## Ошибка 3. Создавать Redis-клиент на каждый запрос
 
 Плохо:
 
 ```python
-r.set("cache:user:1", data)
+async def handler():
+    r = redis.Redis()
 ```
 
 Лучше:
 
-```python
-r.setex("cache:user:1", 300, data)
-```
+Создать один клиент на приложение.
 
 ---
 
-## Ошибка 3. Хранить огромные значения
+## Ошибка 4. Хранить критически важные данные только в Redis
 
-Плохо:
+Redis быстрый, но это не всегда основная база.
 
-```text
-один ключ -> 500 MB JSON
-```
-
-Лучше разбивать данные.
-
----
-
-## Ошибка 4. Использовать Redis как единственную базу для важных данных
-
-Redis может быть persistent, но чаще его используют как дополнительное хранилище.
+Для денег, заказов, пользователей чаще нужен PostgreSQL/MySQL.
 
 ---
 
@@ -2636,272 +2556,282 @@ Redis может быть persistent, но чаще его используют 
 Плохо:
 
 ```python
-value = int(r.get("counter"))
-r.set("counter", value + 1)
+value = int(await r.get("counter"))
+await r.set("counter", value + 1)
 ```
 
 Лучше:
 
 ```python
-r.incr("counter")
+await r.incr("counter")
 ```
 
 ---
 
-## Ошибка 6. Забывать сериализацию
+## Ошибка 6. Не сериализовать сложные данные
 
-Redis хранит строки/байты.
-
-Если сохраняешь dict напрямую, будет ошибка.
-
-Правильно:
+Плохо:
 
 ```python
-r.set("user", json.dumps(user))
+await r.set("user", {"id": 1})
 ```
 
-и потом:
+Лучше:
 
 ```python
-user = json.loads(r.get("user"))
+await r.set("user", json.dumps({"id": 1}))
 ```
 
 ---
 
-# 40. Что должен уверенно знать Junior+ по Redis
+# 53. Что должен знать Junior+ по Redis
 
-Ты должен понимать:
+Уверенный Junior+ должен понимать:
 
-## Базовое
+## База
 
-```text
-что такое Redis
-зачем он нужен
-чем Redis отличается от PostgreSQL
-что Redis хранит данные в памяти
-что такое key-value
-```
+- что такое Redis;
+- зачем он нужен;
+- чем отличается от PostgreSQL;
+- что такое key-value;
+- что такое TTL;
+- как работают базовые команды.
 
-## Команды
+## Типы данных
 
-```text
-SET / GET / DEL / EXISTS
-EXPIRE / TTL / SETEX
-INCR / DECR
-HSET / HGET / HGETALL
-LPUSH / RPUSH / LPOP / BLPOP
-SADD / SMEMBERS / SISMEMBER
-ZADD / ZRANGE / ZREVRANGE
-SCAN
-```
+- String;
+- Hash;
+- List;
+- Set;
+- Sorted Set;
+- базово Streams;
+- базово Pub/Sub.
 
 ## Python
 
-```text
-как подключиться через redis-py
-как сохранять строки
-как сохранять JSON
-как использовать pipeline
-как работать с TTL
-как обрабатывать None
-```
+- как подключиться через `redis.asyncio`;
+- как использовать `await`;
+- как делать get/set;
+- как работать с JSON;
+- как использовать connection pool;
+- как подключить Redis к FastAPI.
 
 ## Практика
 
-```text
-кэширование
-сессии
-счётчики
-rate limiting
-простые очереди
-pub/sub
-streams на базовом уровне
-distributed lock на базовом уровне
-```
+- cache-aside;
+- rate limiter;
+- очередь на List;
+- Pub/Sub;
+- Streams consumer;
+- distributed lock;
+- pipeline;
+- transactions;
+- scan вместо keys.
 
-## Продакшен-понимание
+## Production basics
 
-```text
-не использовать KEYS *
-ставить TTL кэшу
-понимать persistence RDB/AOF
-понимать eviction policies
-защищать Redis паролем/сетью
-следить за памятью
-использовать таймауты
+- TTL;
+- eviction policy;
+- password/ACL;
+- persistence;
+- monitoring;
+- memory usage;
+- slowlog.
+
+---
+
+# 54. Мини-шпаргалка команд Redis
+
+```redis
+PING
+SET key value
+GET key
+DEL key
+EXISTS key
+EXPIRE key seconds
+TTL key
+INCR key
+DECR key
+
+HSET key field value
+HGET key field
+HGETALL key
+HDEL key field
+
+LPUSH key value
+RPUSH key value
+LPOP key
+RPOP key
+LRANGE key 0 -1
+BLPOP key 0
+
+SADD key value
+SMEMBERS key
+SISMEMBER key value
+SREM key value
+SCARD key
+
+ZADD key score value
+ZRANGE key 0 -1 WITHSCORES
+ZREVRANGE key 0 -1 WITHSCORES
+ZINCRBY key increment value
+ZREVRANK key value
+
+PUBLISH channel message
+SUBSCRIBE channel
+
+XADD stream * field value
+XREAD STREAMS stream 0
+XGROUP CREATE stream group $ MKSTREAM
+XREADGROUP GROUP group consumer STREAMS stream >
+XACK stream group id
+
+SCAN cursor MATCH pattern COUNT count
+INFO
+DBSIZE
+SLOWLOG GET 10
 ```
 
 ---
 
-# 41. Мини-шпаргалка Redis + Python
+# 55. Мини-шпаргалка Python async Redis
 
 ```python
-r.set("name", "Ivan")
-r.get("name")
-r.delete("name")
-r.exists("name")
+import redis.asyncio as redis
 
-r.setex("token", 3600, "abc")
-r.ttl("token")
-r.expire("token", 60)
+r = redis.from_url(
+    "redis://localhost:6379/0",
+    decode_responses=True,
+)
 
-r.incr("counter")
-r.decr("counter")
+await r.set("key", "value", ex=60)
+value = await r.get("key")
 
-r.hset("user:1", mapping={"name": "Ivan", "age": 25})
-r.hget("user:1", "name")
-r.hgetall("user:1")
+await r.delete("key")
+await r.exists("key")
 
-r.rpush("queue", "task1")
-r.blpop("queue", timeout=10)
+await r.hset("user:1", mapping={"name": "Ivan"})
+user = await r.hgetall("user:1")
 
-r.sadd("likes:1", "user:1")
-r.smembers("likes:1")
-r.sismember("likes:1", "user:1")
+await r.rpush("queue", "task")
+task = await r.blpop("queue", timeout=0)
 
-r.zadd("rating", {"user:1": 100})
-r.zrevrange("rating", 0, 9, withscores=True)
+await r.sadd("online", "1")
+users = await r.smembers("online")
 
-for key in r.scan_iter("user:*"):
-    print(key)
+await r.zadd("rating", {"Ivan": 100})
+top = await r.zrevrange("rating", 0, 10, withscores=True)
+
+await r.aclose()
 ```
 
 ---
 
-# 42. Практические задания
-
-Чтобы закрепить Redis до Junior+, сделай самостоятельно:
+# 56. Практические задания для закрепления
 
 ## Задание 1
 
-Сделай счётчик просмотров статьи:
+Сделай счётчик просмотров статьи.
+
+Ключ:
 
 ```text
-article:1:views
-article:2:views
+post:{post_id}:views
 ```
 
-Функции:
+Команды:
 
 ```python
-add_view(article_id)
-get_views(article_id)
+await r.incr(f"post:{post_id}:views")
 ```
 
 ---
 
 ## Задание 2
 
-Сделай кэш пользователей:
+Сделай кэш пользователя на 5 минут.
 
-```python
-get_user(user_id)
-update_user(user_id, data)
-```
-
-Требования:
+Ключ:
 
 ```text
-данные брать из fake DB
-кэшировать на 60 секунд
-при update удалять кэш
+cache:user:{user_id}
+```
+
+Используй:
+
+```python
+json.dumps()
+json.loads()
 ```
 
 ---
 
 ## Задание 3
 
-Сделай систему лайков:
+Сделай очередь email-задач.
+
+Producer:
 
 ```python
-like(post_id, user_id)
-unlike(post_id, user_id)
-is_liked(post_id, user_id)
-likes_count(post_id)
+await r.rpush("queue:emails", json.dumps(task))
 ```
 
-Используй Set.
+Consumer:
+
+```python
+await r.blpop("queue:emails", timeout=0)
+```
 
 ---
 
 ## Задание 4
 
-Сделай leaderboard:
+Сделай rate limiter:
 
-```python
-add_score(user_id, score)
-get_top_10()
-get_user_rank(user_id)
+```text
+не больше 10 запросов в минуту
 ```
 
-Используй Sorted Set.
+Ключ:
+
+```text
+rate_limit:user:{user_id}
+```
 
 ---
 
 ## Задание 5
 
-Сделай rate limiter:
+Сделай leaderboard.
 
-```text
-максимум 5 запросов за 60 секунд
-```
-
----
-
-## Задание 6
-
-Сделай простую очередь задач:
+Используй Sorted Set:
 
 ```python
-add_task(data)
-worker()
+await r.zadd("leaderboard", {"user:1": 100})
+await r.zincrby("leaderboard", 50, "user:1")
 ```
-
-Используй List и `BLPOP`.
 
 ---
 
-# 43. Итоговая картина
+# 57. Итог
 
-Redis — это очень быстрый инструмент для задач, где нужны:
+Redis — это быстрый инструмент для работы с данными в памяти.
 
-```text
-скорость
-простые структуры данных
-временные данные
-атомарные счётчики
-кэш
-очереди
-сессии
-лимиты
-```
+Главные вещи, которые нужно запомнить:
 
-Самая важная мысль:
+1. Redis хранит данные по ключам.
+2. Почти всегда нужно продумывать структуру ключей.
+3. Для временных данных используй TTL.
+4. Для кэша обязательно ставь TTL.
+5. Для счётчиков используй атомарные команды `INCR`.
+6. Для очередей можно использовать List или Streams.
+7. Для рейтингов используй Sorted Set.
+8. Для уникальных значений используй Set.
+9. Для объектов можно использовать Hash или JSON.
+10. В Python используй `redis.asyncio`.
+11. Не создавай новый Redis-клиент на каждый запрос.
+12. Не используй `KEYS *` на production.
+13. Redis не всегда замена PostgreSQL.
+14. Для production нужны настройки памяти, безопасности и мониторинга.
 
-```text
-Redis — не просто "быстрый словарь".
-Redis — набор готовых структур данных и атомарных операций,
-которые помогают решать реальные backend-задачи.
-```
-
-Если ты уверенно понимаешь:
-
-```text
-String
-Hash
-List
-Set
-Sorted Set
-TTL
-кэширование
-pipeline
-атомарность
-lock
-pub/sub
-streams basics
-persistence
-eviction
-security
-```
-
-то для уровня Junior+ по Redis у тебя уже очень хорошая база.
+Если ты уверенно понимаешь и умеешь применять всё из этого гайда, то по Redis ты уже находишься примерно на уровне уверенного Junior / Junior+.
